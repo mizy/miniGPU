@@ -1,0 +1,14 @@
+{
+  "include": [
+    "src/**/*"
+  ],
+  "compilerOptions": {
+    "target": "ESNext",
+    "moduleResolution": "node",
+    "typeRoots": [
+      "./node_modules/@webgpu/types",
+      "./node_modules/@types"
+    ],
+    "outDir": "./dist",
+  },
+}
