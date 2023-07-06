@@ -1,14 +1,18 @@
 {
   "include": [
-    "src/**/*"
+    "web/**/*"
   ],
   "compilerOptions": {
     "target": "ESNext",
+    "module": "ESNext",
     "moduleResolution": "node",
     "typeRoots": [
       "./node_modules/@webgpu/types",
       "./node_modules/@types"
     ],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowJs": true,
     "outDir": "./dist",
   },
 }

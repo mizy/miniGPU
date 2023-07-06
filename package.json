@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc src/*.ts --watch --outDir dist",
-    "build:types": "tsc --declaration --emitDeclarationOnly src/*.ts --outDir types"
+    "watch": "tsc --watch  ",
+    "build:types": "tsc --declaration --emitDeclarationOnly --outDir types"
   },
   "author": "",
   "license": "ISC",
