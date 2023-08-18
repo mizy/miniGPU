@@ -1,6 +1,6 @@
 use ::mini_gpu::{
     components::{
-        material::{Material, MaterialConfig},
+        material::{Material, MaterialConfig, MaterialRef, MaterialTrait},
         mesh::Mesh,
     },
     entity::Entity,
@@ -77,45 +77,33 @@ async fn run() {
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let mesh = Mesh::new(
-        vec![0.5, 0.5, -0.5, 0.5, 0., 0.],
+        vec![2., 1., -1., 1., 0., 0.],
         vec![0, 1, 2],
         &mini_gpu.renderer,
     );
-    let material_line = Material::new(
+    let material = new_material(Material::new(
         MaterialConfig {
-            shader_text: include_str!("./triangle.wgsl").to_string(),
-            topology: wgpu::PrimitiveTopology::LineStrip,
-            uniforms: vec![1., 0., 0.5, 1.],
+            shader_text: include_str!("./camera.wgsl").to_string(),
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            uniforms: vec![0., 0.2, 0.5, 0.4],
         },
         &mini_gpu.renderer,
-    );
+    ));
+    let camera = mini_gpu.scene.get_camera_mut().unwrap();
+    camera.config.position = glam::Vec3::new(0., 0., 2.);
+    camera.update_bind_group(&mini_gpu.renderer);
+    let m = material.get_material::<Material>();
+    println!("m's name is {}", m.get_name());
     //object1
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    let mesh_index = mini_gpu
+    mini_gpu
         .scene
         .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
+    mini_gpu
+        .scene
+        .set_entity_component(entity_id, material, "material");
+}
 
-    //object2
-    let entity_2 = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu
-        .scene
-        .set_entity_component_index(entity_2, mesh_index, "mesh");
-    let material_line_index =
-        mini_gpu
-            .scene
-            .set_entity_component::<Material>(entity_2, material_line, "material");
-
-    //object3
-    let mesh_2 = Mesh::new(
-        vec![-1., -1., 1., 1., 1., -1.],
-        vec![0, 1, 2],
-        &mini_gpu.renderer,
-    );
-    let entity_3 = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu
-        .scene
-        .set_entity_component::<Mesh>(entity_3, mesh_2, "mesh");
-    mini_gpu
-        .scene
-        .set_entity_component_index(entity_3, material_line_index, "material");
+fn new_material(m: Material) -> MaterialRef {
+    MaterialRef::new(Box::new(m))
 }

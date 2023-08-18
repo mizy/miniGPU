@@ -1,0 +1,31 @@
+[package]
+name = "wasm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies] 
+log = "0.4.19"
+bytemuck = { version = "1.13", features = ["derive"] }
+env_logger = "0.10.0"
+image = "0.24.6"
+pollster = "0.3.0"
+wgpu = "0.16.1"
+winit = "0.28.6"
+cfg-if = "1.0.0"
+wasm-bindgen = "0.2.87"
+console_log = "1.0.0"
+console_error_panic_hook = "0.1.7"
+wasm-bindgen-futures = "0.4.30"
+web-sys = { version = "0.3.60", features = [
+    "Document",
+    "Window",
+    "Element",
+]} 
+mini_gpu = { path = "../../" }
+
+[build]
+target = "wasm32-unknown-unknown"
+target_arch = "wasm32"

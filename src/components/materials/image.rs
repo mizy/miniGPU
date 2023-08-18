@@ -2,11 +2,15 @@ use std::borrow::Cow;
 
 use wgpu::{ShaderModuleDescriptor, ShaderSource};
 
-use crate::renderer::Renderer;
+use crate::{
+    components::material::{Material, MaterialTrait},
+    renderer::Renderer,
+};
 
 pub struct Image {
-    pub pipeline: wgpu::RenderPipeline,
-    pub bind_group: wgpu::BindGroup,
+    pipeline: Option<wgpu::RenderPipeline>,
+    bind_group: wgpu::BindGroup,
+    bind_group_layout: wgpu::BindGroupLayout,
     pub shader_module: wgpu::ShaderModule,
     pub diffuse_texture: wgpu::Texture,
     pub diffuse_texture_view: wgpu::TextureView,
@@ -22,12 +26,31 @@ pub struct ImageConfig {
 /// A material is a shader and its associated data.
 /// use vs_main and fs_main as the entry points for the vertex and fragment shaders.
 
-impl Image {
-    pub fn new(config: ImageConfig, renderer: &Renderer) -> Image {
+impl MaterialTrait for Image {
+    fn get_name(&self) -> &str {
+        "image"
+    }
+
+    fn get_bind_group(&self) -> &wgpu::BindGroup {
+        &self.bind_group
+    }
+    fn get_render_pipeline(
+        &mut self,
+        renderer: &Renderer,
+        env_pipeline_layout: &Vec<&wgpu::BindGroupLayout>,
+    ) -> &wgpu::RenderPipeline {
+        if self.pipeline.is_some() {
+            return self.pipeline.as_ref().unwrap();
+        }
         let device = &renderer.device;
-        let shader_module = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some("Shader Module"),
-            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/image.wgsl"))),
+        let mut layouts = vec![&self.bind_group_layout];
+        for layout in env_pipeline_layout {
+            layouts.push(layout);
+        }
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Pipeline Layout"),
+            bind_group_layouts: &layouts.as_slice(), //[env_pipeline_layout, layouts].concat().as_slice(),
+            push_constant_ranges: &[],
         });
         let vertex_buffer_layout = wgpu::VertexBufferLayout {
             array_stride: 4 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
@@ -45,6 +68,36 @@ impl Image {
                 },
             ],
         };
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &self.shader_module,
+                entry_point: "vs_main",
+                buffers: &[vertex_buffer_layout],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &self.shader_module,
+                entry_point: "fs_main",
+                targets: &[Some(renderer.swapchain_format.into())],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
+        self.pipeline = Some(pipeline);
+        self.pipeline.as_ref().unwrap()
+    }
+}
+
+impl Image {
+    pub fn new(config: ImageConfig, renderer: &Renderer) -> Image {
+        let device = &renderer.device;
+        let shader_module = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some("Shader Module"),
+            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/image.wgsl"))),
+        });
 
         let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Diffuse Texture"),
@@ -131,34 +184,11 @@ impl Image {
             label: Some("diffuse_bind_group"),
         });
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Pipeline Layout"),
-            bind_group_layouts: &[&texture_bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader_module,
-                entry_point: "vs_main",
-                buffers: &[vertex_buffer_layout],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader_module,
-                entry_point: "fs_main",
-                targets: &[Some(renderer.swapchain_format.into())],
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-        });
         Image {
-            pipeline,
+            pipeline: None,
             shader_module,
             bind_group: diffuse_bind_group,
+            bind_group_layout: texture_bind_group_layout,
             diffuse_texture,
             diffuse_sampler,
             diffuse_texture_view,

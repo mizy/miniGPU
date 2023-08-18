@@ -1,13 +1,7 @@
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-use winit::{
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-};
+use winit::window::Window;
 
 use crate::{
-    renderer::{self, Renderer, RendererConfig},
+    renderer::{Renderer, RendererConfig},
     scene,
 };
 
@@ -32,10 +26,12 @@ impl MiniGPU {
             window,
         )
         .await;
+        let mut scene = scene::Scene::new();
+        scene.add_default_camera(&renderer);
         MiniGPU {
             config,
             renderer,
-            scene: scene::Scene::new(),
+            scene,
         }
     }
 }

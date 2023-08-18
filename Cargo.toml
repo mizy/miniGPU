@@ -6,12 +6,16 @@ edition = "2021"
 [dependencies] 
 bytemuck = { version = "1.13", features = ["derive"] }
 env_logger = "0.10.0"
-hecs = "0.10.3"
 image = "0.24.6"
 pollster = "0.3.0"
 wgpu = "0.16.1"
 winit = "0.28.6"
+cfg-if = "1.0.0"
+glam = "0.24"
+log = "0.4.19"
 
+[build.rustflags]
+cfg = "web_sys_unstable_api"
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.87"
+[check.rustflags]
+cfg = "web_sys_unstable_api"

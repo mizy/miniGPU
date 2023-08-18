@@ -1,9 +1,6 @@
 use winit::window::Window;
 
-use crate::{
-    components::{material::Material, mesh::Mesh},
-    scene::Scene,
-};
+use crate::scene::Scene;
 
 pub struct Renderer {
     pub config: RendererConfig,
@@ -50,10 +47,6 @@ impl Renderer {
             .expect("Failed to create device");
 
         let swapchain_capabilities = surface.get_capabilities(&adapter);
-        println!(
-            "swapchain_capabilities mod: {:?}",
-            swapchain_capabilities.present_modes
-        );
         let swapchain_format = swapchain_capabilities.formats[0];
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,

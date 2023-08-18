@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>WebAssembly Test</title>
+  <script>
+
+  </script>
+</head>
+
+<body>
+  <div id="wasm-example"></div>
+</body>
+<script type="module">
+  import * as wasms from "./pkg/wasm_bg.js";
+  const imports = {
+    './wasm_bg.js': {
+      ...wasms
+    }
+  }
+  const obj = await WebAssembly.instantiateStreaming(fetch("./pkg/wasm_bg.wasm"), imports)
+  const wasm = obj.instance.exports
+  wasms.__wbg_set_wasm(wasm);
+  wasm.run();
+
+</script>
+
+</html>

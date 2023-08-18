@@ -5,5 +5,4 @@ pub mod mini_gpu;
 pub mod renderer;
 pub mod scene;
 pub mod system;
-pub use hecs::*;
 mod tests;

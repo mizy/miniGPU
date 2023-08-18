@@ -1,9 +1,4 @@
-use std::{collections::HashMap, ptr};
-
-use crate::{
-    components::mesh::{self, Mesh},
-    scene::Scene,
-};
+use std::collections::HashMap;
 
 pub struct Entity {
     pub children: Vec<u32>,

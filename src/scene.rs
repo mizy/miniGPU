@@ -1,14 +1,16 @@
-use std::collections::HashMap;
-
 use crate::{
-    entity::{self, Entity},
+    components::{material::MaterialRef, perspectivecamera::*},
+    entity::Entity,
+    renderer,
     system::system::System,
 };
+use std::collections::HashMap;
 
 pub struct Scene {
     pub entities: Vec<Entity>,
     pub systems_map: HashMap<String, Box<dyn System>>,
     pub background_color: wgpu::Color,
+    pub default_camera: Option<usize>,
     components: Vec<*mut u8>,
 }
 impl Scene {
@@ -18,6 +20,7 @@ impl Scene {
             background_color: wgpu::Color::TRANSPARENT,
             systems_map: HashMap::new(),
             components: Vec::new(),
+            default_camera: None,
         };
         instance
     }
@@ -78,10 +81,10 @@ impl Scene {
         component_id
     }
 
-    pub fn get_component<T>(&self, component_ptr: usize) -> &T {
+    pub fn get_component<T>(&self, component_ptr: usize) -> &mut T {
         let addr = self.components.get(component_ptr).unwrap();
         let t = *addr as *mut T;
-        unsafe { &*t }
+        unsafe { &mut *t }
     }
 
     pub fn drop_component<T>(&mut self, component_ptr: usize) {
@@ -96,8 +99,42 @@ impl Scene {
         let component_ptr = entity.get_component_index(component);
         self.get_component::<T>(component_ptr)
     }
+
+    pub fn get_entity_component_mut<T>(&self, entity: &Entity, component: &str) -> &mut T {
+        let component_ptr = entity.get_component_index(component);
+        self.get_component::<T>(component_ptr)
+    }
+
     pub fn get_entity_component_index(&self, entity_id: usize, component_name: &str) -> usize {
         let entity = self.get_entity(entity_id);
         entity.get_component_index(component_name)
+    }
+
+    pub fn find_camera(&self) -> Option<&Entity> {
+        for entity in &self.entities {
+            if entity.has_component("camera") {
+                return Some(entity);
+            }
+        }
+        None
+    }
+
+    pub fn get_camera_mut(&self) -> Option<&mut PerspectiveCamera> {
+        let camera_entity = self.find_camera();
+        let mut camera: Option<&mut PerspectiveCamera> = None;
+
+        if let Some(camera_entity_val) = camera_entity {
+            camera = Some(
+                self.get_entity_component_mut::<PerspectiveCamera>(camera_entity_val, "camera"),
+            );
+        }
+        camera
+    }
+
+    pub fn add_default_camera(&mut self, renderer: &renderer::Renderer) {
+        let entity_id = self.add_entity(Entity::new());
+        let camera = PerspectiveCamera::new(PerspectiveCameraConfig::default(), renderer);
+        self.set_entity_component(entity_id, camera, "camera");
+        self.default_camera = Some(entity_id);
     }
 }

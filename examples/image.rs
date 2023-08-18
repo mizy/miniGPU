@@ -2,15 +2,16 @@ use std::vec;
 
 use ::mini_gpu::{
     components::{
+        material::MaterialRef,
         materials::image::{Image, ImageConfig},
         mesh::Mesh,
     },
-    entity::{self, Entity},
+    entity::Entity,
+    mini_gpu,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
 use bytemuck::{Pod, Zeroable};
-use mini_gpu::mini_gpu;
 use wgpu::util::DeviceExt;
 use winit::{
     event::{Event, WindowEvent},
@@ -141,9 +142,15 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     println!("width: {}", image.width());
     println!("height: {}", image.height());
 
+    let camera = mini_gpu.scene.get_camera_mut().unwrap();
+    camera.config.position = glam::Vec3::new(0., 0., 2.);
+    camera.update_bind_group(&mini_gpu.renderer);
+
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
     mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
-    mini_gpu
-        .scene
-        .set_entity_component(entity_id, material, "material");
+    mini_gpu.scene.set_entity_component(
+        entity_id,
+        MaterialRef::new(Box::new(material)),
+        "material",
+    );
 }

@@ -1,6 +1,6 @@
 use wgpu::util::DeviceExt;
 
-use crate::{mini_gpu, renderer::Renderer};
+use crate::renderer::Renderer;
 
 pub struct Mesh {
     pub vertex_buffer: wgpu::Buffer,
