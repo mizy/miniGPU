@@ -1,9 +1,10 @@
 use ::mini_gpu::{
     components::{
-        material::{Material, MaterialConfig},
+        material::{Material, MaterialConfig, MaterialRef},
         mesh::Mesh,
     },
     entity::Entity,
+    material_ref,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
@@ -33,7 +34,7 @@ async fn run() {
     .await;
     make_test_mesh(&mut mini_gpu);
     mini_gpu
-        .scene
+        .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
 
     event_loop.run(move |event, _, control_flow| {
@@ -77,13 +78,13 @@ async fn run() {
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let mesh = Mesh::new(
-        vec![0.5, 0.5, -0.5, 0.5, 0., 0.],
+        vec![0.5, 0.5, 0. - 0.5, 0.5, 0., 0., 0., 0.],
         vec![0, 1, 2],
         &mini_gpu.renderer,
     );
     let material_line = Material::new(
         MaterialConfig {
-            shader_text: include_str!("./triangle.wgsl").to_string(),
+            shader: include_str!("./triangle.wgsl").to_string(),
             topology: wgpu::PrimitiveTopology::LineStrip,
             uniforms: vec![1., 0., 0.5, 1.],
         },
@@ -91,23 +92,17 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     );
     //object1
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    let mesh_index = mini_gpu
-        .scene
-        .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
-
-    //object2
-    let entity_2 = mini_gpu.scene.add_entity(Entity::new());
     mini_gpu
         .scene
-        .set_entity_component_index(entity_2, mesh_index, "mesh");
-    let material_line_index =
+        .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
+    let material_index =
         mini_gpu
             .scene
-            .set_entity_component::<Material>(entity_2, material_line, "material");
+            .set_entity_component(entity_id, material_ref!(material_line), "material");
 
     //object3
     let mesh_2 = Mesh::new(
-        vec![-1., -1., 1., 1., 1., -1.],
+        vec![-1., -1., 1., 1., 1., 0., 1., -1., 1.],
         vec![0, 1, 2],
         &mini_gpu.renderer,
     );
@@ -117,5 +112,5 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         .set_entity_component::<Mesh>(entity_3, mesh_2, "mesh");
     mini_gpu
         .scene
-        .set_entity_component_index(entity_3, material_line_index, "material");
+        .set_entity_component_index(entity_3, material_index, "material");
 }

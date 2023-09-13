@@ -15,3 +15,9 @@ camera:
 	
 wasm:
 	wasm-pack build examples/wasm 
+
+instance:
+	cargo run --example instance
+
+objloader:
+	cargo run --example objloader

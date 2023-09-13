@@ -1,13 +1,8 @@
 use ::mini_gpu::{
-    components::{
-        controller::map::MapController,
-        material::{Material, MaterialConfig, MaterialRef},
-        mesh::Mesh,
-    },
-    entity::Entity,
-    material_ref,
+    components::controller::map::MapController,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
+    utils::{self, *},
 };
 use mini_gpu::mini_gpu;
 use winit::{
@@ -15,6 +10,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
+
 fn main() {
     pollster::block_on(run());
     print!("Hello, world!");
@@ -33,7 +29,7 @@ async fn run() {
         window,
     )
     .await;
-    make_test_mesh(&mut mini_gpu);
+    make_test_mesh(&mut mini_gpu).await;
     let mut camera_controller = MapController::default();
 
     mini_gpu
@@ -86,26 +82,15 @@ async fn run() {
     });
 }
 
-fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let mesh = Mesh::new(
-        vec![0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5],
-        vec![0, 1, 0, 2, 0, 3],
-        &mini_gpu.renderer,
-    );
-    let material = material_ref!(Material::new(
-        MaterialConfig {
-            shader: include_str!("./camera.wgsl").to_string(),
-            topology: wgpu::PrimitiveTopology::LineList,
-            uniforms: vec![0., 0.2, 0.5, 0.4],
-        },
-        &mini_gpu.renderer,
-    ));
-    //object1
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu
-        .scene
-        .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
-    mini_gpu
-        .scene
-        .set_entity_component(entity_id, material, "material");
+async fn make_test_mesh(mini_gpu: &mut MiniGPU) {
+    let path = std::path::Path::new("examples/models/cube/cube.obj");
+    let obj = utils::obj::load_obj(path, mini_gpu).await;
+    match obj {
+        Ok(size) => {
+            println!("Loaded obj with {} vertices", size);
+        }
+        Err(e) => {
+            println!("Failed to load obj ({:?})", e,);
+        }
+    }
 }

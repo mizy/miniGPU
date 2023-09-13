@@ -8,11 +8,20 @@ bytemuck = { version = "1.13", features = ["derive"] }
 env_logger = "0.10.0"
 image = "0.24.6"
 pollster = "0.3.0"
-wgpu = "0.16.1"
+wgpu = "0.17"
 winit = "0.28.6"
 cfg-if = "1.0.0"
 glam = "0.24"
 log = "0.4.19"
+tobj = {version="4.0.0",features=["async"]}
+reqwest = "0.11.20"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "Element",
+    "Location",
+]}
+anyhow = "1.0.75"
 
 [build.rustflags]
 cfg = "web_sys_unstable_api"

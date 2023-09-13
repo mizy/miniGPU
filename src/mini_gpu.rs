@@ -18,6 +18,7 @@ pub struct MiniGPUConfig {
 
 impl MiniGPU {
     pub async fn new(config: MiniGPUConfig, window: Window) -> MiniGPU {
+        // add default scene & renderer
         let renderer = Renderer::new(
             RendererConfig {
                 width: config.width,
@@ -33,5 +34,9 @@ impl MiniGPU {
             renderer,
             scene,
         }
+    }
+
+    pub fn get_default_scene(&mut self) -> &scene::Scene {
+        &self.scene
     }
 }

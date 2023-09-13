@@ -6,3 +6,4 @@ pub mod renderer;
 pub mod scene;
 pub mod system;
 mod tests;
+pub mod utils;

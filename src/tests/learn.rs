@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 pub struct A {
     pub id: u32,
 }
@@ -33,14 +31,6 @@ fn test_struct() {
     // println!("=======>new:{:?}", b.get_id());
 }
 
-fn get_raw_point(map_ref: &mut HashMap<&str, usize>) {
-    let a = A { id: 1 };
-    let b = Box::new(a);
-    map_ref.insert("a", Box::into_raw(b) as usize);
-}
-
-use std::any::Any;
-
 trait Trait {
     fn display(&self);
 }
@@ -53,4 +43,12 @@ impl Trait for Struct1 {
     fn display(&self) {
         println!("Struct1 with value: {}", self.value);
     }
+}
+
+#[test]
+fn test_mat4_scalar() {
+    let right = glam::Vec3::new(0.0, -1., -1.0);
+    let up = glam::Vec3::new(0.0, 1.0, 0.);
+    let forward = right.cross(up);
+    println!("forward: {:?}", forward);
 }

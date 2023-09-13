@@ -1,16 +1,20 @@
+use std::f32::consts::PI;
+
 use ::mini_gpu::{
     components::{
         controller::map::MapController,
-        material::{Material, MaterialConfig, MaterialRef},
-        mesh::Mesh,
+        instance::{self, Instance},
+        material::MaterialRef,
+        materials::image::{Image, ImageConfig},
     },
     entity::Entity,
-    material_ref,
+    material_ref, mini_gpu,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
-use mini_gpu::mini_gpu;
+use bytemuck::{Pod, Zeroable};
 use winit::{
+    dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
@@ -39,15 +43,17 @@ async fn run() {
     mini_gpu
         .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         let window = &mini_gpu.renderer.window;
-        let camera = mini_gpu.scene.get_camera_mut().unwrap();
+
         match event {
             Event::RedrawRequested(_) => {
+                let camera = mini_gpu.scene.get_camera_mut().unwrap();
                 camera_controller.update(camera);
                 camera.update_bind_group(&mini_gpu.renderer);
-                if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
                     println!("Failed to render: {}", e);
                 }
             }
@@ -86,26 +92,63 @@ async fn run() {
     });
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    tex_coords: [f32; 2],
+}
+
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let mesh = Mesh::new(
-        vec![0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5],
-        vec![0, 1, 0, 2, 0, 3],
-        &mini_gpu.renderer,
-    );
-    let material = material_ref!(Material::new(
-        MaterialConfig {
-            shader: include_str!("./camera.wgsl").to_string(),
-            topology: wgpu::PrimitiveTopology::LineList,
-            uniforms: vec![0., 0.2, 0.5, 0.4],
+    let image = image::load_from_memory(include_bytes!("./case.jpg")).unwrap();
+    let material = Image::new(
+        ImageConfig {
+            width: image.width(),
+            height: image.height(),
+            diffuse_data: image.to_rgba8().into_raw(),
+            shader: Some(include_str!("./instance.wgsl").to_string()),
+            ..Default::default()
         },
         &mini_gpu.renderer,
-    ));
-    //object1
+    );
+    println!("width: {}", image.width());
+    println!("height: {}", image.height());
+    let scale = image.width() as f32 / image.height() as f32;
+    let mesh = material.make_image_mesh(scale * 1., 1., &mini_gpu.renderer);
+
+    let camera = mini_gpu.scene.get_camera_mut().unwrap();
+    camera.config.position = glam::Vec3::new(0., 0., 2.);
+    camera.update_bind_group(&mini_gpu.renderer);
+
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
     mini_gpu
         .scene
-        .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
+        .set_entity_component(entity_id, material_ref!(material), "material");
+    mini_gpu
+        .renderer
+        .window
+        .set_inner_size(LogicalSize::new(image.width(), image.height()));
+    //instance
+    let mut instance_data = Vec::new();
+    for i in 0..10 {
+        for j in 0..10 {
+            let matdata = glam::Mat4::from_scale_rotation_translation(
+                glam::vec3(
+                    (i + 1) as f32 / 10.,
+                    (i + 1) as f32 / 10.,
+                    (i + 1) as f32 / 10.,
+                ),
+                glam::Quat::from_euler(glam::EulerRot::XYZ, i as f32 / 10. * PI, 0., 0.),
+                glam::vec3(i as f32, j as f32, 0.0),
+            );
+            instance_data.push(instance::InstanceData {
+                data: matdata.to_cols_array_2d(),
+            });
+        }
+    }
+    let instance = Instance::new(instance_data, &mini_gpu.renderer);
     mini_gpu
         .scene
-        .set_entity_component(entity_id, material, "material");
+        .set_entity_component(entity_id, instance, "instance");
 }

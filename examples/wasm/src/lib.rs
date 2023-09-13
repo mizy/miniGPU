@@ -1,6 +1,6 @@
 use ::mini_gpu::{
     components::{
-        material::{self, Material, MaterialConfig},
+        material::{Material, MaterialConfig},
         mesh::Mesh,
     },
     entity::Entity,
@@ -41,10 +41,10 @@ pub async fn run() {
     )
     .await;
     mini_gpu
-        .scene
+        .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
     make_test_mesh(&mut mini_gpu);
-    match mini_gpu.renderer.render(&mini_gpu.scene) {
+    match mini_gpu.renderer.render(&mut mini_gpu.scene) {
         Ok(_) => log::info!("rendered"),
         Err(e) => log::error!("Failed to render: {}", e),
     }
@@ -58,7 +58,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     );
     let material = Material::new(
         MaterialConfig {
-            shader_text: include_str!("./mesh.wgsl").to_string(),
+            shader: include_str!("./mesh.wgsl").to_string(),
             topology: wgpu::PrimitiveTopology::TriangleList,
             uniforms: vec![1., 0., 0.5, 1.],
         },

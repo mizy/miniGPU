@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use winit::window::Window;
 
-use crate::scene::Scene;
+use crate::{scene::Scene, system::system::System, utils::depth_texture};
 
 pub struct Renderer {
     pub config: RendererConfig,
@@ -11,6 +13,8 @@ pub struct Renderer {
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
     pub window: Window,
+    pub systems_map: HashMap<String, Box<dyn System>>,
+    pub depth_texture: depth_texture::DepthTexture,
 }
 
 pub struct RendererConfig {
@@ -26,7 +30,6 @@ impl Renderer {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
                 force_fallback_adapter: false,
-                // Request an adapter which can render to our surface
                 compatible_surface: Some(&surface),
             })
             .await
@@ -58,6 +61,8 @@ impl Renderer {
             view_formats: vec![],
         };
         surface.configure(&device, &surface_config);
+        let depth_texture =
+            depth_texture::DepthTexture::new(&device, &surface_config, "depth_texture");
         Renderer {
             window,
             config,
@@ -67,6 +72,8 @@ impl Renderer {
             surface,
             device,
             queue,
+            depth_texture,
+            systems_map: HashMap::new(),
         }
     }
 
@@ -74,12 +81,26 @@ impl Renderer {
         self.surface_config.width = width;
         self.surface_config.height = height;
         self.surface.configure(&self.device, &self.surface_config);
+        self.depth_texture =
+            depth_texture::DepthTexture::new(&self.device, &self.surface_config, "depth_texture");
     }
 
     pub fn render(&self, scene: &Scene) -> Result<(), wgpu::SurfaceError> {
-        for (_, system) in &scene.systems_map {
-            system.update(self, scene);
+        let map = &self.systems_map;
+        for (_, system) in map {
+            {
+                system.update(self, scene);
+            }
         }
         Ok(())
+    }
+
+    pub fn add_system(&mut self, name: String, system: Box<dyn System>) -> Option<Box<dyn System>> {
+        self.systems_map.insert(name, system)
+    }
+
+    pub fn remove_system(&mut self, name: &str) {
+        let system = self.systems_map.remove(name).unwrap();
+        drop(system);
     }
 }

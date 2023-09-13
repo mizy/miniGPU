@@ -7,13 +7,14 @@ use ::mini_gpu::{
         mesh::Mesh,
     },
     entity::Entity,
-    mini_gpu,
+    material_ref, mini_gpu,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 use winit::{
+    dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
@@ -38,7 +39,7 @@ async fn run() {
     .await;
     make_test_mesh(&mut mini_gpu);
     mini_gpu
-        .scene
+        .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
 
     event_loop.run(move |event, _, control_flow| {
@@ -46,7 +47,7 @@ async fn run() {
         let window = &mini_gpu.renderer.window;
         match event {
             Event::RedrawRequested(_) => {
-                if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
                     println!("Failed to render: {}", e);
                 }
             }
@@ -59,6 +60,10 @@ async fn run() {
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
+                        mini_gpu.scene.get_camera_mut().unwrap().set_aspect(
+                            physical_size.width as f32 / physical_size.height as f32,
+                            &mini_gpu.renderer,
+                        );
                         mini_gpu.renderer.window.request_redraw();
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
@@ -83,64 +88,25 @@ async fn run() {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct Vertex {
-    position: [f32; 2],
+    position: [f32; 3],
     tex_coords: [f32; 2],
 }
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let vertices = vec![
-        Vertex {
-            position: [-0.5, -0.5],
-            tex_coords: [0., 1. - 0.],
-        },
-        Vertex {
-            position: [0.5, -0.5],
-            tex_coords: [1., 1. - 0.],
-        },
-        Vertex {
-            position: [0.5, 0.5],
-            tex_coords: [1., 1. - 1.],
-        },
-        Vertex {
-            position: [-0.5, 0.5],
-            tex_coords: [0., 1. - 1.],
-        },
-    ];
-    let indices = vec![0, 1, 2, 2, 3, 0];
-    let vertex_buffer =
-        mini_gpu
-            .renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-    let index_buffer =
-        mini_gpu
-            .renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-    let mesh = Mesh {
-        vertex_buffer,
-        index_buffer,
-        num_indices: indices.len() as u32,
-    };
-    let image = image::load_from_memory(include_bytes!("./test.png")).unwrap();
+    let image = image::load_from_memory(include_bytes!("./case.jpg")).unwrap();
     let material = Image::new(
         ImageConfig {
             width: image.width(),
             height: image.height(),
             diffuse_data: image.to_rgba8().into_raw(),
+            ..ImageConfig::default()
         },
         &mini_gpu.renderer,
     );
     println!("width: {}", image.width());
     println!("height: {}", image.height());
+    let scale = image.width() as f32 / image.height() as f32;
+    let mesh = material.make_image_mesh(scale * 1., 1., &mini_gpu.renderer);
 
     let camera = mini_gpu.scene.get_camera_mut().unwrap();
     camera.config.position = glam::Vec3::new(0., 0., 2.);
@@ -148,9 +114,11 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
 
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
     mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
-    mini_gpu.scene.set_entity_component(
-        entity_id,
-        MaterialRef::new(Box::new(material)),
-        "material",
-    );
+    mini_gpu
+        .scene
+        .set_entity_component(entity_id, material_ref!(material), "material");
+    mini_gpu
+        .renderer
+        .window
+        .set_inner_size(LogicalSize::new(image.width(), image.height()));
 }

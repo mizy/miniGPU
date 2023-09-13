@@ -1,7 +1,7 @@
-use std::{any::Any, borrow::Cow};
+use std::borrow::Cow;
 use wgpu::{util::DeviceExt, *};
 
-use crate::renderer::Renderer;
+use crate::{renderer::Renderer, utils::depth_texture};
 
 pub struct Material {
     pub pipeline: Option<wgpu::RenderPipeline>,
@@ -12,7 +12,7 @@ pub struct Material {
 }
 
 pub struct MaterialConfig {
-    pub shader_text: String,
+    pub shader: String,
     pub topology: wgpu::PrimitiveTopology,
     pub uniforms: Vec<f32>,
 }
@@ -30,6 +30,7 @@ impl MaterialTrait for Material {
         &mut self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&BindGroupLayout>,
+        env_vertex_buffer_layout: Vec<VertexBufferLayout>,
     ) -> &wgpu::RenderPipeline {
         if self.pipeline.is_some() {
             return self.pipeline.as_ref().unwrap();
@@ -44,22 +45,13 @@ impl MaterialTrait for Material {
             bind_group_layouts: &layouts.as_slice(), //[env_pipeline_layout, layouts].concat().as_slice(),
             push_constant_ranges: &[],
         });
-        let vertex_buffer_layout = wgpu::VertexBufferLayout {
-            array_stride: 2 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[wgpu::VertexAttribute {
-                offset: 0,
-                shader_location: 0,
-                format: wgpu::VertexFormat::Float32x2,
-            }],
-        };
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &self.shader_module,
                 entry_point: "vs_main",
-                buffers: &[vertex_buffer_layout],
+                buffers: &env_vertex_buffer_layout,
             },
             fragment: Some(wgpu::FragmentState {
                 module: &self.shader_module,
@@ -78,7 +70,7 @@ impl MaterialTrait for Material {
                 // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(depth_texture::get_default_depth_stencil()),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
@@ -94,7 +86,7 @@ impl Material {
         let device = &renderer.device;
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader Module"),
-            source: ShaderSource::Wgsl(Cow::Borrowed(&config.shader_text)),
+            source: ShaderSource::Wgsl(Cow::Borrowed(&config.shader)),
         });
         let bind_group_layout = Material::create_bind_group_layout(device);
         let bind_group = Material::create_bind_group(device, &config.uniforms, &bind_group_layout);
@@ -127,7 +119,7 @@ impl Material {
     pub fn create_uniform_buffer(device: &wgpu::Device, uniforms: &[f32]) -> wgpu::Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&uniforms),
+            contents: bytemuck::cast_slice(uniforms),
             usage: wgpu::BufferUsages::UNIFORM,
         })
     }
@@ -156,6 +148,7 @@ pub trait MaterialTrait {
         &mut self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&BindGroupLayout>,
+        env_vertex_buffer_layout: Vec<VertexBufferLayout>,
     ) -> &wgpu::RenderPipeline;
 }
 
@@ -173,13 +166,26 @@ impl MaterialRef {
         &mut self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&BindGroupLayout>,
+        env_vertex_buffer_layout: Vec<VertexBufferLayout>,
     ) -> &wgpu::RenderPipeline {
         self.material
-            .get_render_pipeline(renderer, env_pipeline_layout)
+            .get_render_pipeline(renderer, env_pipeline_layout, env_vertex_buffer_layout)
     }
 
     pub fn get_material<T>(&self) -> &Box<T> {
         let t = &self.material as *const Box<dyn MaterialTrait> as *mut Box<T>;
         unsafe { &*t }
     }
+
+    pub fn get_material_mut<T>(&mut self) -> &mut Box<T> {
+        let t = &mut self.material as *mut Box<dyn MaterialTrait> as *mut Box<T>;
+        unsafe { &mut *t }
+    }
+}
+
+#[macro_export]
+macro_rules! material_ref {
+    ( $( $x:expr )? ) => {{
+        MaterialRef::new(Box::new($($x)?))
+    }};
 }

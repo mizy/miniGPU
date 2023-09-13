@@ -1,4 +1,5 @@
 use glam::{Mat4, Vec3};
+use image::buffer;
 use wgpu::util::DeviceExt;
 
 use crate::renderer::Renderer;
@@ -6,6 +7,7 @@ pub struct PerspectiveCamera {
     pub config: PerspectiveCameraConfig,
     bind_group: wgpu::BindGroup,
     bind_group_layout: wgpu::BindGroupLayout,
+    buffer: wgpu::Buffer,
 }
 pub struct PerspectiveCameraConfig {
     pub position: Vec3,
@@ -19,12 +21,12 @@ pub struct PerspectiveCameraConfig {
 impl PerspectiveCameraConfig {
     pub fn default() -> Self {
         Self {
-            position: Vec3::new(0., 0., 1.),
+            position: Vec3::new(0., 1., 1.),
             target: Vec3::new(0., 0., 0.),
-            fov: 45.,
+            fov: 90.,
             aspect: 1.,
             near: 0.1,
-            far: 100.,
+            far: 10000.,
             up: Vec3::new(0., 1., 0.),
         }
     }
@@ -41,11 +43,12 @@ impl PerspectiveCamera {
                 config.far,
             ),
         );
-        let (bind_group, bind_group_layout) = Self::make_bind_group(uniform, renderer);
+        let (bind_group, bind_group_layout, buffer) = Self::make_bind_group(uniform, renderer);
         let camera = PerspectiveCamera {
             config,
             bind_group,
             bind_group_layout,
+            buffer,
         };
         camera
     }
@@ -60,15 +63,15 @@ impl PerspectiveCamera {
                 self.config.far,
             ),
         );
-        let (bind_group, bind_group_layout) = Self::make_bind_group(uniform, &renderer);
-        self.bind_group = bind_group;
-        self.bind_group_layout = bind_group_layout;
+        renderer
+            .queue
+            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[uniform]))
     }
 
     fn make_bind_group(
         uniform: CameraUniform,
         renderer: &Renderer,
-    ) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
+    ) -> (wgpu::BindGroup, wgpu::BindGroupLayout, wgpu::Buffer) {
         let device = &renderer.device;
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -97,7 +100,7 @@ impl PerspectiveCamera {
                 resource: camera_buffer.as_entire_binding(),
             }],
         });
-        (camera_bind_group, camera_bind_group_layout)
+        (camera_bind_group, camera_bind_group_layout, camera_buffer)
     }
 
     pub fn get_bind_group(&self) -> &wgpu::BindGroup {
@@ -107,14 +110,9 @@ impl PerspectiveCamera {
     pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.bind_group_layout
     }
-
-    pub fn build_view_projection_matrix(&self) -> Mat4 {
-        Mat4::perspective_rh(
-            self.config.fov.to_radians(),
-            self.config.aspect,
-            self.config.near,
-            self.config.far,
-        )
+    pub fn set_aspect(&mut self, aspect: f32, renderer: &Renderer) {
+        self.config.aspect = aspect;
+        self.update_bind_group(renderer);
     }
 }
 

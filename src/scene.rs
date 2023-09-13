@@ -1,32 +1,45 @@
-use crate::{
-    components::{material::MaterialRef, perspectivecamera::*},
-    entity::Entity,
-    renderer,
-    system::system::System,
-};
-use std::collections::HashMap;
+use glam::Vec3;
 
+use crate::{components::perspectivecamera::*, entity::Entity, renderer};
+use std::any::Any;
+
+#[derive(Default)]
 pub struct Scene {
     pub entities: Vec<Entity>,
-    pub systems_map: HashMap<String, Box<dyn System>>,
     pub background_color: wgpu::Color,
     pub default_camera: Option<usize>,
-    components: Vec<*mut u8>,
+    components: Vec<*mut dyn Any>,
 }
 impl Scene {
     pub fn new() -> Scene {
         let instance = Scene {
             entities: Vec::new(),
             background_color: wgpu::Color::TRANSPARENT,
-            systems_map: HashMap::new(),
             components: Vec::new(),
             default_camera: None,
         };
         instance
     }
+
+    pub fn add_default_entity(&mut self) -> usize {
+        self.add_entity(Entity::new())
+    }
+
     pub fn add_entity(&mut self, entity: Entity) -> usize {
         self.entities.push(entity);
         self.entities.len() - 1
+    }
+
+    pub fn add_entity_child(&mut self, parent_id: usize, mut entity: Entity) -> usize {
+        entity.is_child = true;
+        let child_id = self.add_entity(entity);
+        let parent = self.entities.get_mut(parent_id);
+        if parent.is_none() {
+            panic!("parent entity not found");
+        }
+        let parent = parent.unwrap();
+        parent.add_child(child_id);
+        child_id
     }
 
     pub fn get_entity(&self, id: usize) -> &Entity {
@@ -41,26 +54,11 @@ impl Scene {
         drop(entity)
     }
 
-    pub fn add_system(&mut self, name: String, system: Box<dyn System>) -> Option<Box<dyn System>> {
-        self.systems_map.insert(name, system)
-    }
-
-    pub fn remove_system(&mut self, name: &str) {
-        let system = self.systems_map.remove(name).unwrap();
-        drop(system);
-    }
     // make component manually memory management
     pub fn add_component<T>(&mut self, component: T) -> usize {
-        let layout = std::alloc::Layout::new::<T>();
-        let ptr = unsafe {
-            let ptr = std::alloc::alloc(layout) as *mut T;
-            if ptr.is_null() {
-                panic!("memory allocation failed");
-            }
-            std::ptr::write(ptr, component);
-            ptr as *mut u8
-        };
-        self.components.push(ptr);
+        let b = Box::new(component);
+        let raw_ptr = Box::into_raw(b);
+        self.components.push(raw_ptr as *mut u8);
         self.components.len() - 1
     }
 
@@ -89,10 +87,7 @@ impl Scene {
 
     pub fn drop_component<T>(&mut self, component_ptr: usize) {
         let addr = self.components.remove(component_ptr);
-        unsafe {
-            let layout = std::alloc::Layout::new::<T>();
-            std::alloc::dealloc(addr, layout);
-        }
+        drop(unsafe { Box::from_raw(addr as *mut T) });
     }
 
     pub fn get_entity_component<T>(&self, entity: &Entity, component: &str) -> &T {
@@ -133,7 +128,18 @@ impl Scene {
 
     pub fn add_default_camera(&mut self, renderer: &renderer::Renderer) {
         let entity_id = self.add_entity(Entity::new());
-        let camera = PerspectiveCamera::new(PerspectiveCameraConfig::default(), renderer);
+        let camera = PerspectiveCamera::new(
+            PerspectiveCameraConfig {
+                position: Vec3::new(0., 1., 1.),
+                target: Vec3::new(0., 0., 0.),
+                fov: 90.,
+                aspect: renderer.config.width as f32 / renderer.config.height as f32,
+                near: 0.001,
+                far: 10000.,
+                up: Vec3::new(0., 1., 0.),
+            },
+            renderer,
+        );
         self.set_entity_component(entity_id, camera, "camera");
         self.default_camera = Some(entity_id);
     }

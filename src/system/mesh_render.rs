@@ -1,11 +1,10 @@
-use wgpu::CommandEncoder;
+use wgpu::{CommandEncoder, VertexBufferLayout};
 
 use crate::{
     components::{
-        material::{Material, MaterialRef, MaterialTrait},
-        mesh::Mesh,
-        perspectivecamera::PerspectiveCamera,
+        instance::Instance, material::MaterialRef, mesh::Mesh, perspectivecamera::PerspectiveCamera,
     },
+    entity::Entity,
     renderer::Renderer,
     scene::Scene,
 };
@@ -16,6 +15,15 @@ pub struct EnvBindGroup<'a> {
     pub bind_group: &'a wgpu::BindGroup,
     pub bind_group_layout: &'a wgpu::BindGroupLayout,
     pub index: u32,
+}
+
+pub struct RenderOptions<'a> {
+    entities: &'a Vec<Entity>,
+    renderer: &'a Renderer,
+    scene: &'a Scene,
+    render_pass: wgpu::RenderPass<'a>,
+    env_pipeline_layouts: &'a Vec<&'a wgpu::BindGroupLayout>,
+    env_bind_groups: &'a Vec<EnvBindGroup<'a>>,
 }
 
 pub struct MeshRender {}
@@ -33,8 +41,16 @@ impl System for MeshRender {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
-        let mut env_bind_groups: Vec<EnvBindGroup> = vec![];
 
+        Self::render(&mut encoder, &view, scene, renderer);
+        renderer.queue.submit(Some(encoder.finish()));
+        frame.present();
+    }
+}
+
+impl MeshRender {
+    fn get_env_bind_groups(scene: &Scene) -> Vec<EnvBindGroup> {
+        let mut env_bind_groups: Vec<EnvBindGroup> = vec![];
         // add camera bind group
         let camera: Option<&mut PerspectiveCamera> = scene.get_camera_mut();
         if let Some(camera_val) = camera {
@@ -44,22 +60,16 @@ impl System for MeshRender {
                 index: 1,
             });
         }
-
-        Self::render(&mut encoder, &view, scene, renderer, &env_bind_groups);
-        renderer.queue.submit(Some(encoder.finish()));
-        frame.present();
+        env_bind_groups
     }
-}
-
-impl MeshRender {
     pub fn render(
         encoder: &mut CommandEncoder,
         view: &wgpu::TextureView,
         scene: &Scene,
         renderer: &Renderer,
-        env_bind_groups: &Vec<EnvBindGroup>,
     ) {
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let env_bind_groups = &Self::get_env_bind_groups(scene);
+        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
@@ -69,33 +79,81 @@ impl MeshRender {
                     store: true,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &renderer.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
         });
-        let env_pipeline_layouts: Vec<&wgpu::BindGroupLayout> = env_bind_groups
+        let env_pipeline_layouts: &Vec<&wgpu::BindGroupLayout> = &env_bind_groups
             .iter()
             .map(|env_bind_group| env_bind_group.bind_group_layout)
             .collect();
 
-        scene.entities.iter().for_each(|entity| {
+        let entities = &scene.entities;
+
+        Self::iter_entities(RenderOptions {
+            entities,
+            renderer,
+            scene,
+            render_pass,
+            env_pipeline_layouts,
+            env_bind_groups,
+        });
+    }
+
+    pub fn iter_entities(option: RenderOptions) {
+        let RenderOptions {
+            entities,
+            renderer,
+            scene,
+            mut render_pass,
+            env_pipeline_layouts,
+            env_bind_groups,
+        } = option;
+        for entity in entities {
             if !entity.has_component("mesh") || !entity.has_component("material") {
-                return;
+                continue;
             }
+            let mut env_vertex_buffer_layout: Vec<VertexBufferLayout> = Vec::new();
+            let mut instance_len = 1;
             let mesh = scene.get_entity_component::<Mesh>(&entity, "mesh");
             let material = scene.get_entity_component::<MaterialRef>(&entity, "material");
-            let mateiral_mut =
-                unsafe { &mut *(material as *const MaterialRef as *mut MaterialRef) };
+            let mateiral_mut = scene.get_entity_component_mut::<MaterialRef>(&entity, "material");
 
-            render_pass.set_bind_group(0, material.get_bind_group(), &[]);
-            render_pass
-                .set_pipeline(mateiral_mut.get_render_pipeline(renderer, &env_pipeline_layouts));
+            // bind mesh
             render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            env_vertex_buffer_layout.push(mesh.get_buffer_layout());
+
+            // bind instance buffer
+            if entity.has_component("instance") {
+                let instance = scene.get_entity_component::<Instance>(&entity, "instance");
+                render_pass
+                    .set_vertex_buffer(Instance::get_buffer_index(), instance.buffer.slice(..));
+                env_vertex_buffer_layout.push(Instance::get_buffer_layout());
+                instance_len = instance.data.len() as u32
+            }
+
+            // set index buffer
             render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
+            // bind env bind group
             for env_bind_group in env_bind_groups {
                 render_pass.set_bind_group(env_bind_group.index, env_bind_group.bind_group, &[]);
             }
 
-            render_pass.draw_indexed(0..mesh.num_indices, 0, 0..1);
-        });
+            // set pipeline and bind group layout
+            render_pass.set_bind_group(0, material.get_bind_group(), &[]);
+            render_pass.set_pipeline(mateiral_mut.get_render_pipeline(
+                renderer,
+                env_pipeline_layouts,
+                env_vertex_buffer_layout,
+            ));
+
+            render_pass.draw_indexed(0..mesh.num_indices, 0, 0..instance_len);
+        }
     }
 }
