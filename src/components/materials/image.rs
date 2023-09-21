@@ -173,7 +173,7 @@ impl Image {
         #[derive(Clone, Copy, Pod, Zeroable)]
         struct Vertex {
             position: [f32; 3],
-            tex_coords: [f32; 2],
+            tex_coord: [f32; 2],
         }
         width = width / 2.;
         height = height / 2.;
@@ -186,19 +186,19 @@ impl Image {
         let vertices = vec![
             Vertex {
                 position: [-width, -height, 0.],
-                tex_coords: [0., 1.],
+                tex_coord: [0., 1.],
             },
             Vertex {
                 position: [width, -height, 0.],
-                tex_coords: [1., 1.],
+                tex_coord: [1., 1.],
             },
             Vertex {
                 position: [width, height, 0.],
-                tex_coords: [1., 0.0],
+                tex_coord: [1., 0.0],
             },
             Vertex {
                 position: [-width, height, 0.],
-                tex_coords: [0., 0.0],
+                tex_coord: [0., 0.0],
             },
         ];
         let indices = vec![0, 1, 2, 2, 3, 0];

@@ -1,3 +1,8 @@
+# bind group index
++ group(0) for material uniform
++ group(1) for camera uniform
+ 
+use from group(10) for other uniform binding
 # build-in shader binding
 
 - camera
@@ -18,7 +23,7 @@ var<uniform> camera: CameraUniform;
 ```
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) tex_coords: vec2<f32>,
+    @location(1) tex_coord: vec2<f32>,
 }
 
 struct InstanceInput {

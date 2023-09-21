@@ -96,7 +96,7 @@ async fn run() {
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct Vertex {
     position: [f32; 3],
-    tex_coords: [f32; 2],
+    tex_coord: [f32; 2],
 }
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {

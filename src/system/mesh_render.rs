@@ -2,7 +2,8 @@ use wgpu::{CommandEncoder, VertexBufferLayout};
 
 use crate::{
     components::{
-        instance::Instance, material::MaterialRef, mesh::Mesh, perspectivecamera::PerspectiveCamera,
+        instance::Instance, lights::light::LightRef, material::MaterialRef, mesh::Mesh,
+        perspectivecamera::PerspectiveCamera,
     },
     entity::Entity,
     renderer::Renderer,
@@ -11,9 +12,9 @@ use crate::{
 
 use super::system::System;
 
-pub struct EnvBindGroup<'a> {
-    pub bind_group: &'a wgpu::BindGroup,
-    pub bind_group_layout: &'a wgpu::BindGroupLayout,
+pub struct EnvBindGroup {
+    pub bind_group: wgpu::BindGroup,
+    pub bind_group_layout: wgpu::BindGroupLayout,
     pub index: u32,
 }
 
@@ -23,7 +24,7 @@ pub struct RenderOptions<'a> {
     scene: &'a Scene,
     render_pass: wgpu::RenderPass<'a>,
     env_pipeline_layouts: &'a Vec<&'a wgpu::BindGroupLayout>,
-    env_bind_groups: &'a Vec<EnvBindGroup<'a>>,
+    env_bind_groups: &'a Vec<EnvBindGroup>,
 }
 
 pub struct MeshRender {}
@@ -49,26 +50,79 @@ impl System for MeshRender {
 }
 
 impl MeshRender {
-    fn get_env_bind_groups(scene: &Scene) -> Vec<EnvBindGroup> {
-        let mut env_bind_groups: Vec<EnvBindGroup> = vec![];
+    fn get_env_bind_groups(scene: &Scene, renderer: &Renderer) -> Vec<EnvBindGroup> {
+        let device = &renderer.device;
+        let mut env_bind_groups: Vec<EnvBindGroup> = Vec::new();
+        let mut bind_group_layout_entries: Vec<wgpu::BindGroupLayoutEntry> = vec![];
+        let mut bind_group_entries: Vec<wgpu::BindGroupEntry> = vec![];
+
+        // join all bind groups to 1 bind group
         // add camera bind group
         let camera: Option<&mut PerspectiveCamera> = scene.get_camera_mut();
         if let Some(camera_val) = camera {
-            env_bind_groups.push(EnvBindGroup {
-                bind_group: camera_val.get_bind_group(),
-                bind_group_layout: camera_val.get_bind_group_layout(),
-                index: 1,
+            bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: camera_val.get_bind_index(),
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            });
+            bind_group_entries.push(wgpu::BindGroupEntry {
+                binding: camera_val.get_bind_index(),
+                resource: camera_val.get_buffer().as_entire_binding(),
             });
         }
+
+        // add lights bind group
+        scene.entities.iter().for_each(|entity| {
+            // each entity has only a light component
+            if !entity.has_component("light") {
+                return;
+            }
+            let light = scene.get_entity_component::<LightRef>(&entity, "light");
+            bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: light.get_bind_index(),
+                visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            });
+            bind_group_entries.push(wgpu::BindGroupEntry {
+                binding: light.get_bind_index(),
+                resource: light.get_buffer().as_entire_binding(),
+            });
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Camera Bind Group Layout"),
+            entries: bind_group_layout_entries.as_slice(),
+        });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Camera Bind Group"),
+            layout: &bind_group_layout,
+            entries: &bind_group_entries.as_slice(),
+        });
+        env_bind_groups.push(EnvBindGroup {
+            bind_group: bind_group,
+            bind_group_layout: bind_group_layout,
+            index: 1,
+        });
         env_bind_groups
     }
+
     pub fn render(
         encoder: &mut CommandEncoder,
         view: &wgpu::TextureView,
         scene: &Scene,
         renderer: &Renderer,
     ) {
-        let env_bind_groups = &Self::get_env_bind_groups(scene);
+        let env_bind_groups = Self::get_env_bind_groups(scene, renderer);
         let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -90,7 +144,7 @@ impl MeshRender {
         });
         let env_pipeline_layouts: &Vec<&wgpu::BindGroupLayout> = &env_bind_groups
             .iter()
-            .map(|env_bind_group| env_bind_group.bind_group_layout)
+            .map(|env_bind_group| &env_bind_group.bind_group_layout)
             .collect();
 
         let entities = &scene.entities;
@@ -101,7 +155,7 @@ impl MeshRender {
             scene,
             render_pass,
             env_pipeline_layouts,
-            env_bind_groups,
+            env_bind_groups: &env_bind_groups,
         });
     }
 
@@ -142,7 +196,7 @@ impl MeshRender {
 
             // bind env bind group
             for env_bind_group in env_bind_groups {
-                render_pass.set_bind_group(env_bind_group.index, env_bind_group.bind_group, &[]);
+                render_pass.set_bind_group(env_bind_group.index, &env_bind_group.bind_group, &[]);
             }
 
             // set pipeline and bind group layout

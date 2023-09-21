@@ -23,7 +23,7 @@ pub struct MapControllerConfig {
 impl Default for MapControllerConfig {
     fn default() -> Self {
         MapControllerConfig {
-            rotate_speed: 0.002,
+            rotate_speed: 0.01,
             pan_speed: 0.002,
         }
     }
