@@ -2,8 +2,11 @@ use wgpu::{CommandEncoder, VertexBufferLayout};
 
 use crate::{
     components::{
-        instance::Instance, lights::light::LightRef, material::MaterialRef, mesh::Mesh,
-        perspectivecamera::PerspectiveCamera,
+        instance::Instance,
+        lights::light::LightTrait,
+        material::MaterialTrait,
+        mesh::Mesh,
+        perspective_camera::{CameraTrait, PerspectiveCamera},
     },
     entity::Entity,
     renderer::Renderer,
@@ -58,7 +61,7 @@ impl MeshRender {
 
         // join all bind groups to 1 bind group
         // add camera bind group
-        let camera: Option<&mut PerspectiveCamera> = scene.get_camera_mut();
+        let camera: Option<&mut Box<dyn CameraTrait>> = scene.get_default_camera();
         if let Some(camera_val) = camera {
             bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
                 binding: camera_val.get_bind_index(),
@@ -82,7 +85,7 @@ impl MeshRender {
             if !entity.has_component("light") {
                 return;
             }
-            let light = scene.get_entity_component::<LightRef>(&entity, "light");
+            let light = scene.get_entity_component::<Box<dyn LightTrait>>(&entity, "light");
             bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
                 binding: light.get_bind_index(),
                 visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX,
@@ -175,8 +178,10 @@ impl MeshRender {
             let mut env_vertex_buffer_layout: Vec<VertexBufferLayout> = Vec::new();
             let mut instance_len = 1;
             let mesh = scene.get_entity_component::<Mesh>(&entity, "mesh");
-            let material = scene.get_entity_component::<MaterialRef>(&entity, "material");
-            let mateiral_mut = scene.get_entity_component_mut::<MaterialRef>(&entity, "material");
+            let material =
+                scene.get_entity_component::<Box<dyn MaterialTrait>>(&entity, "material");
+            let mateiral_mut =
+                scene.get_entity_component_mut::<Box<dyn MaterialTrait>>(&entity, "material");
 
             // bind mesh
             render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));

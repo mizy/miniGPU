@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use glam::{Mat4, Vec3};
 use wgpu::util::DeviceExt;
 
@@ -51,7 +53,51 @@ impl PerspectiveCamera {
         camera
     }
 
-    pub fn update_bind_group(&mut self, renderer: &Renderer) {
+    pub fn set_aspect(&mut self, aspect: f32, renderer: &Renderer) {
+        self.config.aspect = aspect;
+        self.update_bind_group(renderer);
+    }
+
+    fn make_bind_group(uniform: CameraUniform, renderer: &Renderer) -> wgpu::Buffer {
+        let device = &renderer.device;
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        camera_buffer
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CameraUniform {
+    view_projection: [[f32; 4]; 4],
+    projection_matrix: [[f32; 4]; 4],
+    view_matrix: [[f32; 4]; 4],
+    position: [f32; 4],
+}
+impl CameraUniform {
+    pub fn new(view: Mat4, projection: Mat4, position: Vec3) -> Self {
+        Self {
+            view_projection: (projection * view).to_cols_array_2d(),
+            projection_matrix: projection.to_cols_array_2d(),
+            view_matrix: view.to_cols_array_2d(),
+            position: [position.x, position.y, position.z, 1.],
+        }
+    }
+}
+
+pub trait CameraTrait {
+    fn get_bind_index(&self) -> u32;
+    fn get_buffer(&self) -> &wgpu::Buffer;
+    fn update_bind_group(&mut self, renderer: &Renderer);
+    fn as_any(&mut self) -> &mut dyn Any;
+    fn get_type(&self) -> String;
+}
+
+impl CameraTrait for PerspectiveCamera {
+    fn update_bind_group(&mut self, renderer: &Renderer) {
         let uniform = CameraUniform::new(
             Mat4::look_at_rh(self.config.position, self.config.target, self.config.up),
             Mat4::perspective_rh(
@@ -67,67 +113,18 @@ impl PerspectiveCamera {
             .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[uniform]))
     }
 
-    pub fn get_bind_index(&self) -> u32 {
+    fn get_bind_index(&self) -> u32 {
         self.bind_index
     }
 
-    pub fn get_buffer(&self) -> &wgpu::Buffer {
+    fn get_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
-
-    fn make_bind_group(uniform: CameraUniform, renderer: &Renderer) -> wgpu::Buffer {
-        let device = &renderer.device;
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        // let camera_bind_group_layout =
-        //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        //         label: Some("Camera Bind Group Layout"),
-        //         entries: &[wgpu::BindGroupLayoutEntry {
-        //             binding: 0,
-        //             visibility: wgpu::ShaderStages::VERTEX,
-        //             ty: wgpu::BindingType::Buffer {
-        //                 ty: wgpu::BufferBindingType::Uniform,
-        //                 has_dynamic_offset: false,
-        //                 min_binding_size: None,
-        //             },
-        //             count: None,
-        //         }],
-        //     });
-        // let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     label: Some("Camera Bind Group"),
-        //     layout: &camera_bind_group_layout,
-        //     entries: &[wgpu::BindGroupEntry {
-        //         binding: 0,
-        //         resource: camera_buffer.as_entire_binding(),
-        //     }],
-        // });
-        camera_buffer
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 
-    pub fn set_aspect(&mut self, aspect: f32, renderer: &Renderer) {
-        self.config.aspect = aspect;
-        self.update_bind_group(renderer);
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct CameraUniform {
-    view_projection: [[f32; 4]; 4],
-    projection_matrix: [[f32; 4]; 4],
-    view_matrix: [[f32; 4]; 4],
-    position: [f32; 4],
-}
-impl CameraUniform {
-    pub fn new(view: Mat4, projection: Mat4, position: Vec3) -> Self {
-        Self {
-            view_projection: (projection * view).to_cols_array_2d(),
-            projection_matrix: projection.to_cols_array_2d(),
-            view_matrix: view.to_cols_array_2d(),
-            position: [position.x, position.y, position.z, 1.],
-        }
+    fn get_type(&self) -> String {
+        "perspective".to_string()
     }
 }

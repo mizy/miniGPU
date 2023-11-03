@@ -18,6 +18,9 @@ pub struct MaterialConfig {
 }
 
 impl MaterialTrait for Material {
+    fn as_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
     fn get_name(&self) -> &str {
         "Material"
     }
@@ -56,7 +59,11 @@ impl MaterialTrait for Material {
             fragment: Some(wgpu::FragmentState {
                 module: &self.shader_module,
                 entry_point: "fs_main",
-                targets: &[Some(renderer.swapchain_format.into())],
+                targets: &[Some(ColorTargetState {
+                    format: renderer.swapchain_format,
+                    blend: Some(BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: self.config.topology, // 1.
@@ -150,42 +157,5 @@ pub trait MaterialTrait {
         env_pipeline_layout: &Vec<&BindGroupLayout>,
         env_vertex_buffer_layout: Vec<VertexBufferLayout>,
     ) -> &wgpu::RenderPipeline;
-}
-
-pub struct MaterialRef {
-    pub material: Box<dyn MaterialTrait>,
-}
-impl MaterialRef {
-    pub fn new(material: Box<dyn MaterialTrait>) -> MaterialRef {
-        MaterialRef { material }
-    }
-    pub fn get_bind_group(&self) -> &wgpu::BindGroup {
-        self.material.get_bind_group()
-    }
-    pub fn get_render_pipeline(
-        &mut self,
-        renderer: &Renderer,
-        env_pipeline_layout: &Vec<&BindGroupLayout>,
-        env_vertex_buffer_layout: Vec<VertexBufferLayout>,
-    ) -> &wgpu::RenderPipeline {
-        self.material
-            .get_render_pipeline(renderer, env_pipeline_layout, env_vertex_buffer_layout)
-    }
-
-    pub fn get_material<T>(&self) -> &Box<T> {
-        let t = &self.material as *const Box<dyn MaterialTrait> as *mut Box<T>;
-        unsafe { &*t }
-    }
-
-    pub fn get_material_mut<T>(&mut self) -> &mut Box<T> {
-        let t = &mut self.material as *mut Box<dyn MaterialTrait> as *mut Box<T>;
-        unsafe { &mut *t }
-    }
-}
-
-#[macro_export]
-macro_rules! material_ref {
-    ( $( $x:expr )? ) => {{
-        MaterialRef::new(Box::new($($x)?))
-    }};
+    fn as_any(&mut self) -> &mut dyn std::any::Any;
 }

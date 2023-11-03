@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 
-use crate::{components::mesh::Mesh, mini_gpu, renderer::Renderer};
+use crate::{components::mesh::Mesh, renderer::Renderer};
 
 pub struct MakeSphereConfig {
     pub radius: f32,

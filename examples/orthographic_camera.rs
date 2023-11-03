@@ -1,22 +1,20 @@
 use ::mini_gpu::{
     components::{
-        material::MaterialTrait,
-        materials::image::{Image, ImageConfig},
-        perspective_camera::PerspectiveCamera,
+        controller::map::MapController,
+        orthographic_camera::{self, OrthographicCamera, OrthographicCameraConfig},
+        perspective_camera::{CameraTrait, PerspectiveCamera},
     },
-    entity::Entity,
-    mini_gpu,
+    entity, mini_gpu,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
-    utils::texture::Texture,
+    utils,
 };
-use bytemuck::{Pod, Zeroable};
 use winit::{
-    dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
 };
+
 fn main() {
     pollster::block_on(run());
     print!("Hello, world!");
@@ -35,19 +33,22 @@ async fn run() {
         window,
     )
     .await;
-    make_test_mesh(&mut mini_gpu);
+    make_test_mesh(&mut mini_gpu).await;
+    add_camera(&mut mini_gpu);
+    let mut camera_controller = MapController::default();
+
     mini_gpu
         .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
-
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         let window = &mini_gpu.renderer.window;
         let camera = mini_gpu.scene.get_default_camera().unwrap();
-        let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
         match event {
             Event::RedrawRequested(_) => {
-                if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
+                camera_controller.update(camera);
+                camera.update_bind_group(&mini_gpu.renderer);
+                if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
                     println!("Failed to render: {}", e);
                 }
             }
@@ -55,15 +56,12 @@ async fn run() {
                 ref event,
                 window_id,
             } if window_id == window.id() => {
+                camera_controller.process_events(event);
                 match event {
                     WindowEvent::Resized(physical_size) => {
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
-                        perspective_camera.set_aspect(
-                            physical_size.width as f32 / physical_size.height as f32,
-                            &mini_gpu.renderer,
-                        );
                         mini_gpu.renderer.window.request_redraw();
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
@@ -85,48 +83,31 @@ async fn run() {
     });
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coord: [f32; 2],
+async fn make_test_mesh(mini_gpu: &mut MiniGPU) {
+    let path = std::path::Path::new("examples/models/cube/cube.obj");
+    let obj = utils::obj::load_obj(path, mini_gpu).await;
+    match obj {
+        Ok(size) => {
+            println!("Loaded obj with {} vertices", size);
+        }
+        Err(e) => {
+            println!("Failed to load obj ({:?})", e,);
+        }
+    }
 }
 
-fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let bytes = include_bytes!("./case.jpg");
-    let image = image::load_from_memory(bytes).unwrap();
-    let texture = Texture::from_image(
-        &mini_gpu.renderer.device,
-        &mini_gpu.renderer.queue,
-        &image,
-        Some("texture"),
-    )
-    .unwrap();
-
-    let material = Image::new(
-        ImageConfig {
-            texture: Some(texture),
+fn add_camera(mini_gpu: &mut MiniGPU) {
+    let camera = OrthographicCamera::new(
+        OrthographicCameraConfig {
             ..Default::default()
         },
         &mini_gpu.renderer,
     );
-    println!("width: {}", image.width());
-    println!("height: {}", image.height());
-    let scale = image.width() as f32 / image.height() as f32;
-    let mesh = material.make_image_mesh(scale * 1., 1., &mini_gpu.renderer);
-
-    let camera = mini_gpu.scene.get_default_camera().unwrap();
-    let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
-    perspective_camera.config.position = glam::Vec3::new(0., 0., 2.);
-    camera.update_bind_group(&mini_gpu.renderer);
-
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
-    mini_gpu
-        .scene
-        .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
-    mini_gpu
-        .renderer
-        .window
-        .set_inner_size(LogicalSize::new(image.width(), image.height()));
+    let entity_id = mini_gpu.scene.add_entity(entity::Entity::new());
+    mini_gpu.scene.set_entity_component::<Box<dyn CameraTrait>>(
+        entity_id,
+        Box::new(camera),
+        "camera",
+    );
+    mini_gpu.scene.default_camera = Some(entity_id);
 }

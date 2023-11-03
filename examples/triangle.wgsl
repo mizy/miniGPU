@@ -2,10 +2,10 @@
 
 @vertex
 fn vs_main(@location(0) pos: vec3f) ->@builtin(position) vec4f {
-  return vec4f(pos, 0., 1.);
+  return vec4f(pos, 1.);
 }
 
 @fragment
 fn fs_main() -> @location(0) vec4f {
-  return color;
+  return vec4f(color.xyz, 0.4);
 }

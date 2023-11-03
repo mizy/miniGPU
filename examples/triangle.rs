@@ -1,10 +1,9 @@
 use ::mini_gpu::{
     components::{
-        material::{Material, MaterialConfig, MaterialRef},
+        material::{Material, MaterialConfig, MaterialTrait},
         mesh::Mesh,
     },
     entity::Entity,
-    material_ref,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
@@ -85,7 +84,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let material_line = Material::new(
         MaterialConfig {
             shader: include_str!("./triangle.wgsl").to_string(),
-            topology: wgpu::PrimitiveTopology::LineStrip,
+            topology: wgpu::PrimitiveTopology::TriangleList,
             uniforms: vec![1., 0., 0.5, 1.],
         },
         &mini_gpu.renderer,
@@ -95,12 +94,15 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     mini_gpu
         .scene
         .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
-    let material_index =
-        mini_gpu
-            .scene
-            .set_entity_component(entity_id, material_ref!(material_line), "material");
+    let material_index = mini_gpu
+        .scene
+        .set_entity_component::<Box<dyn MaterialTrait>>(
+            entity_id,
+            Box::new(material_line),
+            "material",
+        );
 
-    //object3
+    //object3 test reuse material1
     let mesh_2 = Mesh::new(
         vec![-1., -1., 1., 1., 1., 0., 1., -1., 1.],
         vec![0, 1, 2],

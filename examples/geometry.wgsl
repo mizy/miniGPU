@@ -7,7 +7,7 @@ struct CameraUniform {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4f,
-    @location(0) color: vec4f,
+    @location(0) tex_coord: vec2<f32>,
     @location(1) position: vec3<f32>,
     @location(2) normal: vec3<f32>,
 }
@@ -36,12 +36,21 @@ fn vs_main(vertex:VertexInput) -> VertexOutput  {
   out.clip_position = clip_position;
   out.position = vertex.position;
   out.normal = vertex.normal;
-  out.color = vec4f(1.0,1.0,0.8, 1.0);
+  out.tex_coord = vertex.tex_coord; 
   return out;
 }
 
+
+
+@group(0) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(0) @binding(1)
+var s_diffuse: sampler;
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+    let color =  textureSample(t_diffuse, s_diffuse, in.tex_coord);
+
     let ambient_strength = 0.1;
     let ambient_color = direction_light.color * ambient_strength;
 
@@ -55,7 +64,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let specular_strength = pow(max(dot(in.normal, half_dir), 0.0), 32.0);
     let specular_color = specular_strength * direction_light.color;
 
-    let result = (ambient_color + diffuse_color + specular_color) * in.color.xyz;
+    let result = (ambient_color + diffuse_color + specular_color) * color.rgb;
 
-    return  vec4f(result, in.color.a);
+    return  vec4f(result, color.a);
 }

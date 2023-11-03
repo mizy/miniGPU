@@ -5,18 +5,13 @@ use tobj::Model;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    components::{
-        material::{self, MaterialRef},
-        materials,
-        mesh::Mesh,
-    },
+    components::{material::MaterialTrait, materials, mesh::Mesh},
     entity::Entity,
-    material_ref,
     mini_gpu::MiniGPU,
     renderer::Renderer,
 };
 
-use super::resource::{load_path, load_string, load_texture};
+use super::resource::{load_path, load_texture};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -58,8 +53,8 @@ pub async fn make_material_map<'a>(
     material_path: &'a std::path::Path,
     obj_materials: Result<Vec<tobj::Material>, tobj::LoadError>,
     renderer: &Renderer,
-) -> anyhow::Result<Vec<MaterialRef>> {
-    let mut materials = Vec::new();
+) -> anyhow::Result<Vec<Box<dyn MaterialTrait>>> {
+    let mut materials: Vec<Box<dyn MaterialTrait>> = Vec::new();
     for m in obj_materials? {
         let mut m_string = "";
         match m.diffuse_texture {
@@ -87,7 +82,7 @@ pub async fn make_material_map<'a>(
             },
             &renderer,
         );
-        materials.push(material_ref!(material));
+        materials.push(Box::new(material));
         break;
     }
     Ok(materials)
@@ -97,7 +92,7 @@ pub fn append_mesh_children(
     parent: usize,
     mini_gpu: &mut MiniGPU,
     models: Vec<Model>,
-    materials: Vec<MaterialRef>,
+    materials: Vec<Box<dyn MaterialTrait>>,
 ) -> usize {
     let mut i = 0;
     let material_ids: Vec<usize> = materials

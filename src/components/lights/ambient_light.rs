@@ -2,7 +2,7 @@ use wgpu::util::DeviceExt;
 
 use crate::renderer::Renderer;
 
-use super::light::Light;
+use super::light::LightTrait;
 
 pub struct AmbientLight {
     pub uniform: AmbientLightUniform,
@@ -39,7 +39,7 @@ impl AmbientLight {
     }
 }
 
-impl Light for AmbientLight {
+impl LightTrait for AmbientLight {
     fn get_bind_index(&self) -> u32 {
         self.bind_index
     }

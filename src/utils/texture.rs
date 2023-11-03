@@ -19,6 +19,7 @@ impl Texture {
         label: &str,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
+        println!("image size: {:?}", img.dimensions());
         Self::from_image(device, queue, &img, Some(label))
     }
 

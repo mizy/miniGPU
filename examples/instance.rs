@@ -4,13 +4,15 @@ use ::mini_gpu::{
     components::{
         controller::map::MapController,
         instance::{self, Instance},
-        material::MaterialRef,
+        material::MaterialTrait,
         materials::image::{Image, ImageConfig},
+        perspective_camera::PerspectiveCamera,
     },
     entity::Entity,
-    material_ref, mini_gpu,
+    mini_gpu,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
+    utils::texture::Texture,
 };
 use bytemuck::{Pod, Zeroable};
 use winit::{
@@ -47,10 +49,11 @@ async fn run() {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         let window = &mini_gpu.renderer.window;
+        let camera = mini_gpu.scene.get_default_camera().unwrap();
+        let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
 
         match event {
             Event::RedrawRequested(_) => {
-                let camera = mini_gpu.scene.get_camera_mut().unwrap();
                 camera_controller.update(camera);
                 camera.update_bind_group(&mini_gpu.renderer);
                 if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
@@ -67,7 +70,7 @@ async fn run() {
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
-                        mini_gpu.scene.get_camera_mut().unwrap().set_aspect(
+                        perspective_camera.set_aspect(
                             physical_size.width as f32 / physical_size.height as f32,
                             &mini_gpu.renderer,
                         );
@@ -101,11 +104,16 @@ struct Vertex {
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let image = image::load_from_memory(include_bytes!("./case.jpg")).unwrap();
+    let texture = Texture::from_image(
+        &mini_gpu.renderer.device,
+        &mini_gpu.renderer.queue,
+        &image,
+        Some("image"),
+    )
+    .unwrap();
     let material = Image::new(
         ImageConfig {
-            width: image.width(),
-            height: image.height(),
-            diffuse_data: image.to_rgba8().into_raw(),
+            texture: Some(texture),
             shader: Some(include_str!("./instance.wgsl").to_string()),
             ..Default::default()
         },
@@ -116,15 +124,16 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let scale = image.width() as f32 / image.height() as f32;
     let mesh = material.make_image_mesh(scale * 1., 1., &mini_gpu.renderer);
 
-    let camera = mini_gpu.scene.get_camera_mut().unwrap();
-    camera.config.position = glam::Vec3::new(0., 0., 2.);
+    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
+    perspective_camera.config.position = glam::Vec3::new(0., 0., 2.);
     camera.update_bind_group(&mini_gpu.renderer);
 
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
     mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
     mini_gpu
         .scene
-        .set_entity_component(entity_id, material_ref!(material), "material");
+        .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
     mini_gpu
         .renderer
         .window

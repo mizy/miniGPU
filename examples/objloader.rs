@@ -1,5 +1,5 @@
 use ::mini_gpu::{
-    components::controller::map::MapController,
+    components::{controller::map::MapController, perspective_camera::PerspectiveCamera},
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
     utils::{self, *},
@@ -38,7 +38,8 @@ async fn run() {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         let window = &mini_gpu.renderer.window;
-        let camera = mini_gpu.scene.get_camera_mut().unwrap();
+        let camera = mini_gpu.scene.get_default_camera().unwrap();
+        let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
         match event {
             Event::RedrawRequested(_) => {
                 camera_controller.update(camera);
@@ -57,7 +58,7 @@ async fn run() {
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
-                        mini_gpu.scene.get_camera_mut().unwrap().set_aspect(
+                        perspective_camera.set_aspect(
                             physical_size.width as f32 / physical_size.height as f32,
                             &mini_gpu.renderer,
                         );

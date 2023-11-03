@@ -4,5 +4,6 @@ pub mod lights;
 pub mod material;
 pub mod materials;
 pub mod mesh;
-pub mod perspectivecamera;
+pub mod orthographic_camera;
+pub mod perspective_camera;
 pub mod transform;

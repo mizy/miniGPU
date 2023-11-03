@@ -1,4 +1,7 @@
+pub mod sprite_entity;
+
 use std::collections::HashMap;
+
 static mut ID: usize = 0;
 pub struct Entity {
     pub name: String,

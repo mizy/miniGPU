@@ -1,11 +1,13 @@
+use std::any::Any;
+
 use ::mini_gpu::{
     components::{
         controller::map::MapController,
-        material::{Material, MaterialConfig, MaterialRef},
+        material::{Material, MaterialConfig, MaterialTrait},
         mesh::Mesh,
+        perspective_camera::{self, PerspectiveCamera},
     },
     entity::Entity,
-    material_ref,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
@@ -42,10 +44,11 @@ async fn run() {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
         let window = &mini_gpu.renderer.window;
-        let camera = mini_gpu.scene.get_camera_mut().unwrap();
+        let camera = mini_gpu.scene.get_default_camera().unwrap();
+        let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
         match event {
             Event::RedrawRequested(_) => {
-                camera_controller.update(camera);
+                camera_controller.update_perspective(perspective_camera);
                 camera.update_bind_group(&mini_gpu.renderer);
                 if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
                     println!("Failed to render: {}", e);
@@ -61,7 +64,7 @@ async fn run() {
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
-                        mini_gpu.scene.get_camera_mut().unwrap().set_aspect(
+                        perspective_camera.set_aspect(
                             physical_size.width as f32 / physical_size.height as f32,
                             &mini_gpu.renderer,
                         );
@@ -92,7 +95,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         vec![0, 1, 0, 2, 0, 3],
         &mini_gpu.renderer,
     );
-    let material = material_ref!(Material::new(
+    let material = Box::new(Material::new(
         MaterialConfig {
             shader: include_str!("./camera.wgsl").to_string(),
             topology: wgpu::PrimitiveTopology::LineList,
@@ -107,5 +110,5 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
     mini_gpu
         .scene
-        .set_entity_component(entity_id, material, "material");
+        .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, material, "material");
 }

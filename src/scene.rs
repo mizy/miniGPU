@@ -1,6 +1,6 @@
 use glam::Vec3;
 
-use crate::{components::perspectivecamera::*, entity::Entity, renderer};
+use crate::{components::perspective_camera::*, entity::Entity, renderer};
 use std::any::Any;
 
 #[derive(Default)]
@@ -100,12 +100,18 @@ impl Scene {
         self.get_component::<T>(component_ptr)
     }
 
+    pub fn drop_entity_component<T>(&mut self, entity: &mut Entity, component: &str) {
+        let component_ptr = entity.get_component_index(component);
+        self.drop_component::<T>(component_ptr);
+        entity.remove_component_index(component);
+    }
+
     pub fn get_entity_component_index(&self, entity_id: usize, component_name: &str) -> usize {
         let entity = self.get_entity(entity_id);
         entity.get_component_index(component_name)
     }
 
-    pub fn find_camera(&self) -> Option<&Entity> {
+    pub fn find_camera_entity(&self) -> Option<&Entity> {
         for entity in &self.entities {
             if entity.has_component("camera") {
                 return Some(entity);
@@ -114,16 +120,13 @@ impl Scene {
         None
     }
 
-    pub fn get_camera_mut(&self) -> Option<&mut PerspectiveCamera> {
-        let camera_entity = self.find_camera();
-        let mut camera: Option<&mut PerspectiveCamera> = None;
-
-        if let Some(camera_entity_val) = camera_entity {
-            camera = Some(
-                self.get_entity_component_mut::<PerspectiveCamera>(camera_entity_val, "camera"),
-            );
+    pub fn get_default_camera(&self) -> Option<&mut Box<dyn CameraTrait>> {
+        if self.default_camera.is_none() {
+            return None;
         }
-        camera
+        let mut camera_entity: &Entity = self.get_entity(self.default_camera.unwrap());
+
+        Some(self.get_entity_component_mut::<Box<dyn CameraTrait>>(camera_entity, "camera"))
     }
 
     pub fn add_default_camera(&mut self, renderer: &renderer::Renderer) {
@@ -140,7 +143,7 @@ impl Scene {
             },
             renderer,
         );
-        self.set_entity_component(entity_id, camera, "camera");
+        self.set_entity_component::<Box<dyn CameraTrait>>(entity_id, Box::new(camera), "camera");
         self.default_camera = Some(entity_id);
     }
 }

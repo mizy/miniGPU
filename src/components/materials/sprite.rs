@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use bytemuck::{Pod, Zeroable};
-use wgpu::{util::DeviceExt, ShaderModuleDescriptor, ShaderSource};
+use wgpu::{util::DeviceExt, BlendState, ColorTargetState, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{
     components::{material::MaterialTrait, mesh::Mesh},
@@ -12,30 +12,37 @@ use crate::{
     },
 };
 
-pub struct Image {
+use super::shader::ShaderParser;
+
+pub struct SpriteMaterial {
     pipeline: Option<wgpu::RenderPipeline>,
     pub bind_group: wgpu::BindGroup,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub shader_module: wgpu::ShaderModule,
     pub texture: texture::Texture,
-    pub config: ImageConfig,
+    pub config: SpriteMaterialConfig,
+    pub uniform_buffer: wgpu::Buffer,
 }
 
-pub struct ImageConfig {
-    pub width: u32,
-    pub height: u32,
+pub struct SpriteMaterialConfig {
+    pub width: f32,
+    pub height: f32,
+    pub radial: bool,
+    pub size_attenuation: bool,
     pub shader: Option<String>,
     pub name: String,
     pub texture: Option<Texture>,
 }
-impl Default for ImageConfig {
+impl Default for SpriteMaterialConfig {
     fn default() -> Self {
-        ImageConfig {
-            name: "image".to_string(),
-            width: 0,
-            height: 0,
+        SpriteMaterialConfig {
+            name: "Sprite".to_string(),
+            width: 0.0,
+            height: 0.0,
+            radial: false,
             shader: None,
             texture: None,
+            size_attenuation: true,
         }
     }
 }
@@ -43,12 +50,13 @@ impl Default for ImageConfig {
 /// A material is a shader and its associated data.
 /// use vs_main and fs_main as the entry points for the vertex and fragment shaders.
 
-impl MaterialTrait for Image {
+impl MaterialTrait for SpriteMaterial {
     fn as_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
+
     fn get_name(&self) -> &str {
-        "image"
+        "Sprite"
     }
 
     fn get_bind_group(&self) -> &wgpu::BindGroup {
@@ -85,37 +93,53 @@ impl MaterialTrait for Image {
             fragment: Some(wgpu::FragmentState {
                 module: &self.shader_module,
                 entry_point: "fs_main",
-                targets: &[Some(renderer.swapchain_format.into())],
+                targets: &[Some(ColorTargetState {
+                    format: renderer.swapchain_format,
+                    blend: Some(BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
             }),
             primitive: wgpu::PrimitiveState::default(),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
         });
+        println!("format: {:?}", renderer.swapchain_format);
         self.pipeline = Some(pipeline);
         self.pipeline.as_ref().unwrap()
     }
 }
 
-impl Image {
-    pub fn new(mut config: ImageConfig, renderer: &Renderer) -> Image {
+impl SpriteMaterial {
+    pub fn new(mut config: SpriteMaterialConfig, renderer: &Renderer) -> SpriteMaterial {
         let device = &renderer.device;
-        let mut shader_text = include_str!("shaders/image.wgsl");
-        if let Some(text) = config.shader.as_ref() {
-            shader_text = text
-        }
+        let shader_text = {
+            if let Some(s) = config.shader.clone() {
+                s
+            } else {
+                let mut shader_parser = ShaderParser::new();
+                if !config.size_attenuation {
+                    shader_parser
+                        .defines
+                        .insert("SIZE_ATTENUATION".to_string(), "true".to_string());
+                }
+                shader_parser
+                    .parse_shader(include_str!("./shaders/sprite.wgsl"))
+                    .to_string()
+            }
+        };
+        println!("shader_text: {}", shader_text);
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader Module"),
-            source: ShaderSource::Wgsl(Cow::Borrowed(shader_text)),
+            source: ShaderSource::Wgsl(shader_text.into()),
         });
         let texture = config.texture.unwrap();
-        if config.width == 0 {
-            config.width = texture.size.width;
+        if config.width == 0. {
+            config.width = texture.size.width as f32;
         }
-        if config.height == 0 {
-            config.height = texture.size.height;
+        if config.height == 0. {
+            config.height = texture.size.height as f32;
         }
-        config.height = texture.size.height;
         config.texture = None; // cause texture has been moved to texture
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -136,9 +160,23 @@ impl Image {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                // uniform config
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
             label: Some("texture_bind_group_layout"),
         });
+
+        let uniform_buffer =
+            Self::create_uniform_buffer(device, &[config.width as f32, config.height as f32, 0.]);
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             entries: &[
@@ -150,89 +188,34 @@ impl Image {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&texture.sampler),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &uniform_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
             ],
             label: Some("diffuse_bind_group"),
         });
 
-        Image {
+        SpriteMaterial {
             pipeline: None,
             shader_module,
             bind_group,
             bind_group_layout,
+            uniform_buffer,
             texture,
             config,
         }
     }
 
-    pub fn make_image_mesh(&self, mut width: f32, mut height: f32, renderer: &Renderer) -> Mesh {
-        #[repr(C)]
-        #[derive(Clone, Copy, Pod, Zeroable)]
-        struct Vertex {
-            position: [f32; 3],
-            tex_coord: [f32; 2],
-        }
-        width = width / 2.;
-        height = height / 2.;
-        //
-        // 0----->1
-        // |
-        // |
-        // |
-        // 1
-        let vertices = vec![
-            Vertex {
-                position: [-width, -height, 0.],
-                tex_coord: [0., 1.],
-            },
-            Vertex {
-                position: [width, -height, 0.],
-                tex_coord: [1., 1.],
-            },
-            Vertex {
-                position: [width, height, 0.],
-                tex_coord: [1., 0.0],
-            },
-            Vertex {
-                position: [-width, height, 0.],
-                tex_coord: [0., 0.0],
-            },
-        ];
-        let indices = vec![0, 1, 2, 2, 3, 0];
-        let vertex_buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-        let index_buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-        let mesh = Mesh {
-            vertex_buffer,
-            index_buffer,
-            vertex_buffer_layout: wgpu::VertexBufferLayout {
-                array_stride: 5 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &[
-                    wgpu::VertexAttribute {
-                        offset: 0,
-                        shader_location: 0,
-                        format: wgpu::VertexFormat::Float32x3,
-                    },
-                    wgpu::VertexAttribute {
-                        offset: 3 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                        shader_location: 1,
-                        format: wgpu::VertexFormat::Float32x2,
-                    },
-                ],
-            },
-            num_indices: indices.len() as u32,
-        };
-        mesh
+    pub fn create_uniform_buffer(device: &wgpu::Device, uniforms: &[f32]) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(uniforms),
+            usage: wgpu::BufferUsages::UNIFORM,
+        })
     }
 }

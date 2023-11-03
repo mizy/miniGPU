@@ -2,7 +2,7 @@ use wgpu::util::DeviceExt;
 
 use crate::renderer::Renderer;
 
-use super::light::Light;
+use super::light::LightTrait;
 
 pub struct DirectionalLight {
     pub uniform: DirectionalLightUniform,
@@ -14,9 +14,8 @@ pub struct DirectionalLight {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DirectionalLightUniform {
     pub direction: [f32; 3],
-    pub color: [f32; 3],
+    pub color: [f32; 4],
     pub intensity: f32,
-    pub _padding: f32,
 }
 
 impl DirectionalLight {
@@ -41,7 +40,7 @@ impl DirectionalLight {
     }
 }
 
-impl Light for DirectionalLight {
+impl LightTrait for DirectionalLight {
     fn get_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
