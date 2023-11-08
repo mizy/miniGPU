@@ -1,15 +1,24 @@
 use ::mini_gpu::{
     components::{
         controller::map::MapController,
+        material::MaterialTrait,
+        materials::image::{Image, ImageConfig},
+        mesh::Mesh,
         orthographic_camera::{self, OrthographicCamera, OrthographicCameraConfig},
         perspective_camera::{CameraTrait, PerspectiveCamera},
     },
-    entity, mini_gpu,
+    entity::{self, Entity},
+    geometry::sphere,
+    mini_gpu,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
-    utils,
+    utils::{
+        self,
+        texture::{self, Texture},
+    },
 };
 use winit::{
+    dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
@@ -33,7 +42,7 @@ async fn run() {
         window,
     )
     .await;
-    make_test_mesh(&mut mini_gpu).await;
+    make_test_mesh(&mut mini_gpu);
     add_camera(&mut mini_gpu);
     let mut camera_controller = MapController::default();
 
@@ -62,6 +71,10 @@ async fn run() {
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
+                        camera.set_aspect(
+                            physical_size.width as f32 / physical_size.height as f32,
+                            &mini_gpu.renderer,
+                        );
                         mini_gpu.renderer.window.request_redraw();
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
@@ -83,26 +96,53 @@ async fn run() {
     });
 }
 
-async fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let path = std::path::Path::new("examples/models/cube/cube.obj");
-    let obj = utils::obj::load_obj(path, mini_gpu).await;
-    match obj {
-        Ok(size) => {
-            println!("Loaded obj with {} vertices", size);
-        }
-        Err(e) => {
-            println!("Failed to load obj ({:?})", e,);
-        }
-    }
+fn make_test_mesh(mini_gpu: &mut MiniGPU) {
+    let bytes = include_bytes!("./case.jpg");
+    let image = image::load_from_memory(bytes).unwrap();
+    let texture = Texture::from_image(
+        &mini_gpu.renderer.device,
+        &mini_gpu.renderer.queue,
+        &image,
+        Some("texture"),
+    )
+    .unwrap();
+
+    let material = Image::new(
+        ImageConfig {
+            texture: Some(texture),
+            ..Default::default()
+        },
+        &mini_gpu.renderer,
+    );
+    println!("width: {}", image.width());
+    println!("height: {}", image.height());
+    let scale = image.width() as f32 / image.height() as f32;
+    let mesh = material.make_image_mesh(scale * 1., 1., &mini_gpu.renderer);
+
+    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
+    perspective_camera.config.position = glam::Vec3::new(0., 0., 2.);
+    camera.update_bind_group(&mini_gpu.renderer);
+
+    let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
+    mini_gpu
+        .scene
+        .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
+    mini_gpu
+        .renderer
+        .window
+        .set_inner_size(LogicalSize::new(image.width(), image.height()));
 }
 
 fn add_camera(mini_gpu: &mut MiniGPU) {
-    let camera = OrthographicCamera::new(
+    let mut camera = OrthographicCamera::new(
         OrthographicCameraConfig {
             ..Default::default()
         },
         &mini_gpu.renderer,
     );
+    camera.config.position.z = 10.0;
     let entity_id = mini_gpu.scene.add_entity(entity::Entity::new());
     mini_gpu.scene.set_entity_component::<Box<dyn CameraTrait>>(
         entity_id,

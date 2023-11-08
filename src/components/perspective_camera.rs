@@ -53,11 +53,6 @@ impl PerspectiveCamera {
         camera
     }
 
-    pub fn set_aspect(&mut self, aspect: f32, renderer: &Renderer) {
-        self.config.aspect = aspect;
-        self.update_bind_group(renderer);
-    }
-
     fn make_bind_group(uniform: CameraUniform, renderer: &Renderer) -> wgpu::Buffer {
         let device = &renderer.device;
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -94,6 +89,7 @@ pub trait CameraTrait {
     fn update_bind_group(&mut self, renderer: &Renderer);
     fn as_any(&mut self) -> &mut dyn Any;
     fn get_type(&self) -> String;
+    fn set_aspect(&mut self, aspect: f32, renderer: &Renderer);
 }
 
 impl CameraTrait for PerspectiveCamera {
@@ -122,6 +118,11 @@ impl CameraTrait for PerspectiveCamera {
     }
     fn as_any(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn set_aspect(&mut self, aspect: f32, renderer: &Renderer) {
+        self.config.aspect = aspect;
+        self.update_bind_group(renderer);
     }
 
     fn get_type(&self) -> String {

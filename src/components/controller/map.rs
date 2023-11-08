@@ -26,7 +26,7 @@ pub struct MapControllerConfig {
 impl Default for MapControllerConfig {
     fn default() -> Self {
         MapControllerConfig {
-            rotate_speed: 0.01,
+            rotate_speed: 0.02,
             pan_speed: 0.002,
         }
     }
@@ -104,7 +104,6 @@ impl MapController {
             let camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
             self.update_perspective(camera);
         } else if camera_type == "orthographic" {
-            // todo: there are also some bugs in orthographic camera controller
             let camera = camera
                 .as_any()
                 .downcast_mut::<OrthographicCamera>()

@@ -10,10 +10,8 @@ pub struct OrthographicCamera {
     pub bind_index: u32,
 }
 pub struct OrthographicCameraConfig {
-    pub left: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub top: f32,
+    pub width: f32,
+    pub aspect: f32,
     pub near: f32,
     pub far: f32,
     pub position: Vec3,
@@ -23,13 +21,11 @@ pub struct OrthographicCameraConfig {
 impl Default for OrthographicCameraConfig {
     fn default() -> Self {
         Self {
-            left: -1.0,
-            right: 1.0,
-            bottom: -1.0,
-            top: 1.0,
+            width: 10.0,
+            aspect: 1.0,
             near: 0.1,
             far: 100.0,
-            position: Vec3::new(0.0, 0.0, 1.0),
+            position: Vec3::new(0.0, 0.0, 10.0),
             target: Vec3::new(0.0, 0.0, 0.0),
             up: Vec3::new(0.0, 1.0, 0.0),
         }
@@ -41,10 +37,10 @@ impl OrthographicCamera {
         let uniform = CameraUniform::new(
             Mat4::look_at_rh(config.position, config.target, config.up),
             Mat4::orthographic_rh(
-                config.left,
-                config.right,
-                config.bottom,
-                config.top,
+                -config.width / 2.0,
+                config.width / 2.0,
+                -config.width / 2.0 / config.aspect,
+                config.width / 2.0 / config.aspect,
                 config.near,
                 config.far,
             ),
@@ -75,10 +71,10 @@ impl CameraTrait for OrthographicCamera {
         let uniform = CameraUniform::new(
             Mat4::look_at_rh(self.config.position, self.config.target, self.config.up),
             Mat4::orthographic_rh(
-                self.config.left,
-                self.config.right,
-                self.config.bottom,
-                self.config.top,
+                -self.config.width / 2.0,
+                self.config.width / 2.0,
+                -self.config.width / 2.0 / self.config.aspect,
+                self.config.width / 2.0 / self.config.aspect,
                 self.config.near,
                 self.config.far,
             ),
@@ -99,6 +95,11 @@ impl CameraTrait for OrthographicCamera {
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn set_aspect(&mut self, aspect: f32, renderer: &Renderer) {
+        self.config.aspect = aspect;
+        self.update_bind_group(renderer);
     }
 
     fn get_type(&self) -> String {

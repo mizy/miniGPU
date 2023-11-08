@@ -44,7 +44,6 @@ async fn run() {
         *control_flow = ControlFlow::Wait;
         let window = &mini_gpu.renderer.window;
         let camera = mini_gpu.scene.get_default_camera().unwrap();
-        let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
         match event {
             Event::RedrawRequested(_) => {
                 if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
@@ -60,7 +59,7 @@ async fn run() {
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
-                        perspective_camera.set_aspect(
+                        camera.set_aspect(
                             physical_size.width as f32 / physical_size.height as f32,
                             &mini_gpu.renderer,
                         );
