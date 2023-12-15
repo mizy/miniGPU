@@ -1,5 +1,8 @@
 use glam::Vec2;
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
+use winit::{
+    event::{ElementState, KeyEvent, WindowEvent},
+    keyboard::Key,
+};
 
 use crate::components::{
     orthographic_camera::OrthographicCamera,
@@ -10,7 +13,7 @@ use crate::components::{
 
 pub struct MapController {
     pub config: MapControllerConfig,
-    pressed_key: Option<VirtualKeyCode>,
+    pressed_key: Option<Key>,
     mouse_left_pressed: bool,
     mouse_right_pressed: bool,
     mouse_now_pos: Vec2,
@@ -48,19 +51,16 @@ impl MapController {
     pub fn process_events(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
+                event: KeyEvent {
+                    state, logical_key, ..
+                },
                 ..
             } => {
                 let new_pressed_key = match state {
-                    ElementState::Pressed => Some(*keycode),
+                    ElementState::Pressed => Some(logical_key),
                     ElementState::Released => None,
                 };
-                self.pressed_key = new_pressed_key;
+                self.pressed_key = new_pressed_key.cloned();
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 match state {
@@ -119,7 +119,7 @@ impl MapController {
             let camera_right = camera_look_at.cross(-camera.config.up).normalize();
             let camera_forward = camera_look_at.cross(camera_right).normalize();
             let camera_move = camera_right * dis.x * self.config.pan_speed
-                + camera_forward * dis.y * self.config.rotate_speed;
+                + camera_forward * dis.y * self.config.pan_speed;
             camera.config.position += camera_move;
             camera.config.target += camera_move;
             self.before_pos = self.mouse_now_pos;
@@ -150,7 +150,7 @@ impl MapController {
             let camera_right = camera_look_at.cross(-camera.config.up).normalize();
             let camera_forward = camera_look_at.cross(camera_right).normalize();
             let camera_move = camera_right * dis.x * self.config.pan_speed
-                + camera_forward * dis.y * self.config.rotate_speed;
+                + camera_forward * dis.y * self.config.pan_speed;
             camera.config.position += camera_move;
             camera.config.target += camera_move;
             self.before_pos = self.mouse_now_pos;

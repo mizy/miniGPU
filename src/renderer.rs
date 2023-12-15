@@ -25,7 +25,7 @@ pub struct RendererConfig {
 impl Renderer {
     pub async fn new(config: RendererConfig, window: Window) -> Renderer {
         let instance = wgpu::Instance::default();
-        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        let surface = unsafe { instance.create_surface(&window).unwrap() };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),

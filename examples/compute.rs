@@ -58,9 +58,6 @@ async fn run() {
                         _ => {}
                     }
                 }
-                Event::AboutToWait => {
-                    mini_gpu.renderer.window.request_redraw();
-                }
                 _ => {}
             }
         })

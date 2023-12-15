@@ -11,7 +11,7 @@ fn main() {
 
 async fn run() {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
     let window = Window::new(&event_loop).unwrap();
     let mini_gpu = mini_gpu::MiniGPU::new(
         mini_gpu::MiniGPUConfig {
@@ -22,20 +22,13 @@ async fn run() {
     )
     .await;
 
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
-        match event {
-            Event::RedrawRequested(_) => {
-                if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
-                    eprintln!("Failed to render: {}", e);
-                }
-                println!("Hello, window!")
-            }
+    event_loop
+        .run(move |event, target| match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => *control_flow = ControlFlow::Exit,
+            } => target.exit(),
             _ => {}
-        }
-    });
+        })
+        .unwrap();
 }

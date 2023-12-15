@@ -16,7 +16,6 @@ use mini_gpu::{
         lights::light::LightTrait,
         material::MaterialTrait,
         materials::image::{Image, ImageConfig},
-        perspective_camera::PerspectiveCamera,
     },
     mini_gpu::MiniGPUConfig,
     utils::texture,
@@ -29,12 +28,11 @@ use winit::{
 
 fn main() {
     pollster::block_on(run());
-    print!("Hello, world!");
 }
 
 async fn run() {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
     let window = Window::new(&event_loop).unwrap();
     let size = window.inner_size();
     let mut mini_gpu = MiniGPU::new(
@@ -69,26 +67,25 @@ async fn run() {
     mini_gpu
         .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
-        let window = &mini_gpu.renderer.window;
-        let camera = mini_gpu.scene.get_default_camera().unwrap();
-        match event {
-            Event::RedrawRequested(_) => {
-                update_light(&mini_gpu, light_index);
-                camera_controller.update(camera);
-                camera.update_bind_group(&mini_gpu.renderer);
-                if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
-                    println!("Failed to render: {}", e);
-                }
-            }
+    event_loop
+        .run(move |event, target| match event {
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == window.id() => {
+            } if window_id == mini_gpu.renderer.window.id() => {
                 camera_controller.process_events(event);
                 match event {
+                    WindowEvent::RedrawRequested => {
+                        let camera = mini_gpu.scene.get_default_camera().unwrap();
+                        update_light(&mini_gpu, light_index);
+                        camera_controller.update(camera);
+                        camera.update_bind_group(&mini_gpu.renderer);
+                        if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                            println!("Failed to render: {}", e);
+                        }
+                    }
                     WindowEvent::Resized(physical_size) => {
+                        let camera = mini_gpu.scene.get_default_camera().unwrap();
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
@@ -98,23 +95,17 @@ async fn run() {
                         );
                         mini_gpu.renderer.window.request_redraw();
                     }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        // new_inner_size 是 &&mut 类型，因此需要解引用两次
-                        mini_gpu
-                            .renderer
-                            .resize(new_inner_size.width, new_inner_size.height);
-                        mini_gpu.renderer.window.request_redraw();
-                    }
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::CloseRequested => target.exit(),
                     _ => {}
                 }
             }
-            Event::MainEventsCleared => {
-                window.request_redraw();
+
+            Event::AboutToWait => {
+                mini_gpu.renderer.window.request_redraw();
             }
             _ => {}
-        }
-    });
+        })
+        .unwrap();
 }
 
 fn update_light(mini_gpu: &MiniGPU, light_index: usize) {

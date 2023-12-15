@@ -1,4 +1,4 @@
-use wgpu::{CommandEncoder, VertexBufferLayout};
+use wgpu::{CommandEncoder, StoreOp, VertexBufferLayout};
 
 use crate::{
     components::{
@@ -133,17 +133,19 @@ impl MeshRender {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(scene.background_color),
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: &renderer.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
-                    store: true,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
         let env_pipeline_layouts: &Vec<&wgpu::BindGroupLayout> = &env_bind_groups
             .iter()

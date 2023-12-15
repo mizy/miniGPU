@@ -16,17 +16,18 @@ pub async fn run() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     console_log::init_with_level(log::Level::Info).expect("Couldn't initialize logger");
     log::info!("init wasm example");
-    use winit::platform::web::WindowExtWebSys;
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
     let window = Window::new(&event_loop).unwrap();
     use winit::dpi::PhysicalSize;
-    window.set_inner_size(PhysicalSize::new(1200, 800));
+    window
+        .request_inner_size(PhysicalSize::new(1200, 800))
+        .unwrap();
 
     web_sys::window()
         .and_then(|win| win.document())
         .and_then(|doc| {
             let dst = doc.get_element_by_id("wasm-example")?;
-            let canvas = web_sys::Element::from(window.canvas());
+            let canvas = doc.create_element("canvas").unwrap();
             dst.append_child(&canvas).ok()?;
             Some(())
         })

@@ -24,7 +24,7 @@ fn main() {
 
 async fn run() {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
     let window = Window::new(&event_loop).unwrap();
     let size = window.inner_size();
     let mut mini_gpu = mini_gpu::MiniGPU::new(
@@ -40,21 +40,21 @@ async fn run() {
         .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
 
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
-        let window = &mini_gpu.renderer.window;
-        let camera = mini_gpu.scene.get_default_camera().unwrap();
-        match event {
-            Event::RedrawRequested(_) => {
-                if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
-                    println!("Failed to render: {}", e);
-                }
-            }
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == window.id() => {
-                match event {
+    event_loop
+        .run(move |event, target| {
+            let window = &mini_gpu.renderer.window;
+            let camera = mini_gpu.scene.get_default_camera().unwrap();
+            match event {
+                Event::WindowEvent {
+                    ref event,
+                    window_id,
+                } if window_id == window.id() => match event {
+                    WindowEvent::RedrawRequested => {
+                        camera.update_bind_group(&mini_gpu.renderer);
+                        if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
+                            println!("Failed to render: {}", e);
+                        }
+                    }
                     WindowEvent::Resized(physical_size) => {
                         mini_gpu
                             .renderer
@@ -65,23 +65,16 @@ async fn run() {
                         );
                         mini_gpu.renderer.window.request_redraw();
                     }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        // new_inner_size 是 &&mut 类型，因此需要解引用两次
-                        mini_gpu
-                            .renderer
-                            .resize(new_inner_size.width, new_inner_size.height);
-                        mini_gpu.renderer.window.request_redraw();
-                    }
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    WindowEvent::CloseRequested => target.exit(),
                     _ => {}
+                },
+                Event::AboutToWait => {
+                    mini_gpu.renderer.window.request_redraw();
                 }
+                _ => {}
             }
-            Event::MainEventsCleared => {
-                window.request_redraw();
-            }
-            _ => {}
-        }
-    });
+        })
+        .unwrap();
 }
 
 #[repr(C)]
@@ -124,8 +117,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     mini_gpu
         .scene
         .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
-    mini_gpu
+    let _ = mini_gpu
         .renderer
         .window
-        .set_inner_size(LogicalSize::new(image.width(), image.height()));
+        .request_inner_size(LogicalSize::new(image.width(), image.height()));
 }
