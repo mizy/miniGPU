@@ -18,7 +18,7 @@ use bytemuck::{Pod, Zeroable};
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     window::Window,
 };
 fn main() {

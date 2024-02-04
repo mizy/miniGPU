@@ -1,16 +1,13 @@
 use ::mini_gpu::{
-    components::{
-        controller::map::MapController,
-        perspective_camera::{self, PerspectiveCamera},
-    },
+    components::{controller::map::MapController, perspective_camera::PerspectiveCamera},
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
-    utils::{self, *},
+    utils::{self},
 };
 use mini_gpu::mini_gpu;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     window::Window,
 };
 

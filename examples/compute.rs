@@ -1,107 +1,111 @@
-use ::mini_gpu::{
-    components::{
-        material::{Material, MaterialConfig, MaterialTrait},
-        mesh::Mesh,
-    },
-    entity::Entity,
-    mini_gpu::MiniGPU,
-    system::mesh_render::MeshRender,
-};
-use mini_gpu::mini_gpu;
-use winit::{
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-};
+use std::borrow::Cow;
+
+use wgpu::util::DeviceExt;
+
 fn main() {
-    pollster::block_on(run());
+    pollster::block_on(run_compute());
     print!("Hello, world!");
 }
 
-async fn run() {
-    env_logger::init();
-    let event_loop = EventLoop::new().unwrap();
-    let window = Window::new(&event_loop).unwrap();
-    let size = window.inner_size();
-    let mut mini_gpu = mini_gpu::MiniGPU::new(
-        mini_gpu::MiniGPUConfig {
-            width: size.width,
-            height: size.height,
-        },
-        window,
-    )
-    .await;
-    make_test_mesh(&mut mini_gpu);
-    mini_gpu
-        .renderer
-        .add_system("render".to_string(), Box::new(MeshRender {}));
-
-    event_loop
-        .run(move |event, target| {
-            let window = &mini_gpu.renderer.window;
-            match event {
-                Event::WindowEvent { window_id, event } if window_id == window.id() => {
-                    match event {
-                        WindowEvent::RedrawRequested => {
-                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
-                                println!("Failed to render: {}", e);
-                            }
-                        }
-                        WindowEvent::Resized(physical_size) => {
-                            mini_gpu
-                                .renderer
-                                .resize(physical_size.width, physical_size.height);
-                            mini_gpu.renderer.window.request_redraw();
-                        }
-
-                        WindowEvent::CloseRequested => target.exit(),
-                        _ => {}
-                    }
-                }
-                _ => {}
-            }
-        })
+async fn run_compute() {
+    let instance = wgpu::Instance::default();
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions::default())
+        .await
         .unwrap();
+    let (device, queue) = adapter
+        .request_device(&wgpu::DeviceDescriptor::default(), None)
+        .await
+        .unwrap();
+
+    let cs = include_str!("shader.comp.wgsl");
+    let cs_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Compute Shader"),
+        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(cs)),
+    });
+    let (buffer, bind_group_layout, bind_group) = make_data(&device);
+
+    let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("Compute Pipeline"),
+        layout: Some(
+            &device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Pipeline Layout"),
+                bind_group_layouts: &[&bind_group_layout],
+                push_constant_ranges: &[],
+            }),
+        ),
+        module: &cs_module,
+        entry_point: "main",
+    });
+
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Compute Encoder"),
+    });
+    {
+        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
+        cpass.set_pipeline(&compute_pipeline);
+        cpass.set_bind_group(0, &bind_group, &[]);
+        cpass.insert_debug_marker("compute demo");
+        cpass.dispatch_workgroups(1024, 1, 1);
+    }
+    let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: None,
+        size: buffer.size(),
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    encoder.copy_buffer_to_buffer(&buffer, 0, &staging_buffer, 0, buffer.size());
+    queue.submit(Some(encoder.finish()));
+
+    // read the result
+    let buffer_slice = staging_buffer.slice(..);
+    buffer_slice.map_async(wgpu::MapMode::Read, |res| match res {
+        Ok(_) => {
+            println!("success");
+        }
+        Err(e) => {
+            eprintln!("failed to map buffer: {:?}", e);
+        }
+    });
+    device.poll(wgpu::Maintain::Wait);
+    let view = buffer_slice.get_mapped_range();
+    let data: &[u32] = bytemuck::cast_slice(&view);
+    println!("length of data: {}", data.len());
+    println!("top 10 of data: {:?}", &data[..10]);
 }
 
-fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let mesh = Mesh::new(
-        vec![0.5, 0.5, 0. - 0.5, 0.5, 0., 0., 0., 0.],
-        vec![0, 1, 2],
-        &mini_gpu.renderer,
-    );
-    let material_line = Material::new(
-        MaterialConfig {
-            shader: include_str!("./triangle.wgsl").to_string(),
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            uniforms: vec![1., 0., 0.5, 1.],
-        },
-        &mini_gpu.renderer,
-    );
-    //object1
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu
-        .scene
-        .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
-    let material_index = mini_gpu
-        .scene
-        .set_entity_component::<Box<dyn MaterialTrait>>(
-            entity_id,
-            Box::new(material_line),
-            "material",
-        );
+fn make_data(device: &wgpu::Device) -> (wgpu::Buffer, wgpu::BindGroupLayout, wgpu::BindGroup) {
+    // 创建一个数据缓冲区
+    let data = [0u32; 1024];
+    let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Data Buffer"),
+        contents: bytemuck::cast_slice(&data),
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+    });
 
-    //object3 test reuse material1
-    let mesh_2 = Mesh::new(
-        vec![-1., -1., 1., 1., 1., 0., 1., -1., 1.],
-        vec![0, 1, 2],
-        &mini_gpu.renderer,
-    );
-    let entity_3 = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu
-        .scene
-        .set_entity_component::<Mesh>(entity_3, mesh_2, "mesh");
-    mini_gpu
-        .scene
-        .set_entity_component_index(entity_3, material_index, "material");
+    // 创建一个绑定布局
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("Bind Group Layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(4096),
+            },
+            count: None,
+        }],
+    });
+
+    // 创建一个绑定组
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Bind Group"),
+        layout: &bind_group_layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buffer.as_entire_binding(),
+        }],
+    });
+    (buffer, bind_group_layout, bind_group)
 }

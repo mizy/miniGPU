@@ -69,7 +69,7 @@ async fn run() {
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let mesh = Mesh::new(
-        vec![0.5, 0.5, 0. - 0.5, 0.5, 0., 0., 0., 0.],
+        vec![0.5, 0.5, 0., -0.5, 0.5, 0., 0., 0., 0.],
         vec![0, 1, 2],
         &mini_gpu.renderer,
     );

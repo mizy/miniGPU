@@ -4,8 +4,15 @@ use ::mini_gpu::{
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
+use image::{ImageBuffer, Rgba};
 use mini_gpu::{
-    components::materials::sprite::SpriteMaterialConfig, mini_gpu::MiniGPUConfig, utils::texture,
+    components::{
+        material::{Material, MaterialConfig, MaterialTrait},
+        materials::sprite::SpriteMaterialConfig,
+        mesh::Mesh,
+    },
+    mini_gpu::MiniGPUConfig,
+    utils::texture,
 };
 use winit::{
     event::{Event, WindowEvent},
@@ -78,6 +85,11 @@ async fn run() {
         .unwrap();
 }
 
+fn create_solid_color_image(width: u32, height: u32, color: [u8; 4]) -> image::DynamicImage {
+    let img_buffer = ImageBuffer::from_fn(width, height, |_, _| Rgba(color));
+    image::DynamicImage::ImageRgba8(img_buffer)
+}
+
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
     sprite_entity::make_mesh(
@@ -86,11 +98,12 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mut mini_gpu.scene,
         entity_id,
     );
-    let texture = texture::Texture::from_bytes(
+    let img = create_solid_color_image(256, 256, [255, 0, 0, 255]);
+    let texture = texture::Texture::from_image(
         &mini_gpu.renderer.device,
         &mini_gpu.renderer.queue,
-        include_bytes!("./case.jpg"),
-        "case.jpg",
+        &img,
+        Some("test"),
     )
     .unwrap();
     sprite_entity::make_material(
@@ -98,7 +111,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mut mini_gpu.scene,
         SpriteMaterialConfig {
             width: texture.size.width as f32 / mini_gpu.config.width as f32,
-            height: texture.size.height as f32 / mini_gpu.config.height as f32,
+            height: texture.size.height as f32 / mini_gpu.config.width as f32,
             radial: true,
             texture: Some(texture),
             ..Default::default()
