@@ -116,7 +116,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     println!("width: {}", image.width());
     println!("height: {}", image.height());
     let scale = image.width() as f32 / image.height() as f32;
-    let mesh = material.make_image_mesh(scale * 1., 1., &mini_gpu.renderer);
+    let mesh = material.make_image_mesh(scale * 1., 1., vec![0.0, 0.0, 0.0], &mini_gpu.renderer);
 
     let camera = mini_gpu.scene.get_default_camera().unwrap();
     let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();

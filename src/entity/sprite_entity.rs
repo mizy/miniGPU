@@ -5,7 +5,6 @@ use crate::{
         material::MaterialTrait,
         materials::{
             image::{Image, ImageConfig},
-            shader::ShaderParser,
             sprite::{SpriteMaterial, SpriteMaterialConfig},
         },
         mesh::Mesh,

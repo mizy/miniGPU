@@ -164,7 +164,13 @@ impl Image {
         }
     }
 
-    pub fn make_image_mesh(&self, mut width: f32, mut height: f32, renderer: &Renderer) -> Mesh {
+    pub fn make_image_mesh(
+        &self,
+        mut width: f32,
+        mut height: f32,
+        position: Vec<f32>,
+        renderer: &Renderer,
+    ) -> Mesh {
         #[repr(C)]
         #[derive(Clone, Copy, Pod, Zeroable)]
         struct Vertex {
@@ -181,19 +187,19 @@ impl Image {
         // 1
         let vertices = vec![
             Vertex {
-                position: [-width, -height, 0.],
+                position: [position[0] - width, position[1] - height, position[2]],
                 tex_coord: [0., 1.],
             },
             Vertex {
-                position: [width, -height, 0.],
+                position: [position[0] + width, position[1] - height, position[2]],
                 tex_coord: [1., 1.],
             },
             Vertex {
-                position: [width, height, 0.],
+                position: [position[0] + width, position[1] + height, position[2]],
                 tex_coord: [1., 0.0],
             },
             Vertex {
-                position: [-width, height, 0.],
+                position: [position[0] - width, position[1] + height, position[2]],
                 tex_coord: [0., 0.0],
             },
         ];

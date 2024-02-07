@@ -1,17 +1,10 @@
 use ::mini_gpu::{
-    components::{
-        controller::map::MapController,
-        material::{Material, MaterialConfig, MaterialTrait},
-        mesh::Mesh,
-    },
-    entity::Entity,
-    mini_gpu::MiniGPU,
-    system::mesh_render::MeshRender,
+    components::controller::map::MapController, system::mesh_render::MeshRender, utils::test_xyz,
 };
 use mini_gpu::mini_gpu;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     window::Window,
 };
 fn main() {
@@ -33,7 +26,7 @@ async fn run() {
         window,
     )
     .await;
-    make_test_mesh(&mut mini_gpu);
+    test_xyz::add_xyz_line(&mut mini_gpu);
     let mut camera_controller = MapController::default();
     mini_gpu
         .renderer
@@ -76,28 +69,4 @@ async fn run() {
             _ => {}
         })
         .unwrap();
-}
-
-fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let mesh = Mesh::new(
-        vec![0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5],
-        vec![0, 1, 0, 2, 0, 3],
-        &mini_gpu.renderer,
-    );
-    let material = Box::new(Material::new(
-        MaterialConfig {
-            shader: include_str!("./camera.wgsl").to_string(),
-            topology: wgpu::PrimitiveTopology::LineList,
-            uniforms: vec![0., 0.2, 0.5, 0.4],
-        },
-        &mini_gpu.renderer,
-    ));
-    //object1
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu
-        .scene
-        .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
-    mini_gpu
-        .scene
-        .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, material, "material");
 }

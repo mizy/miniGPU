@@ -2,8 +2,7 @@ use glam::Vec3;
 // todo: make a shader computer mesh line, for 2d render in 3d space
 use crate::{
     components::{
-        material::MaterialTrait,
-        materials::sprite::{SpriteMaterial, SpriteMaterialConfig},
+        material::{Material, MaterialConfig, MaterialTrait},
         mesh::Mesh,
     },
     renderer::Renderer,
@@ -17,13 +16,15 @@ pub fn make_mesh(
     scene: &mut Scene,
     entity_id: usize,
 ) {
-    let vertices = make_width_line_vertexes(path, width);
-    let mesh = Mesh::new(vertices, vec![0, 1, 2, 2, 1, 3], renderer);
+    let (vertices, indices) = make_width_line_vertexes(path, width);
+
+    let mesh = Mesh::new(vertices, indices, renderer);
     scene.set_entity_component(entity_id, mesh, "mesh");
 }
 
-pub fn make_width_line_vertexes(path: &Vec<Vec3>, width: f32) -> Vec<f32> {
+pub fn make_width_line_vertexes(path: &Vec<Vec3>, width: f32) -> (Vec<f32>, Vec<u32>) {
     let mut vertexes = vec![];
+    let mut indices = vec![];
     let half_width = width / 2.0;
     // calculate line
     for i in 0..path.len() {
@@ -40,19 +41,26 @@ pub fn make_width_line_vertexes(path: &Vec<Vec3>, width: f32) -> Vec<f32> {
         vertexes.push(position.x + normal.x);
         vertexes.push(position.y + normal.y);
         vertexes.push(position.z + normal.z);
+        indices.push(i as u32 * 2);
         vertexes.push(position.x - normal.x);
         vertexes.push(position.y - normal.y);
         vertexes.push(position.z - normal.z);
+        indices.push(i as u32 * 2 + 1);
     }
-    vertexes
+    (vertexes, indices)
 }
 
-pub fn make_material(
-    renderer: &Renderer,
-    scene: &mut Scene,
-    material: SpriteMaterialConfig,
-    entity_id: usize,
-) {
-    let material = SpriteMaterial::new(material, renderer);
+pub fn make_material(renderer: &Renderer, scene: &mut Scene, color: Vec<f32>, entity_id: usize) {
+    let shader = include_str!("../components/materials/shaders/default.wgsl");
+    let mut shader_parser = crate::components::materials::shader::ShaderParser::new();
+    let shader = shader_parser.parse_shader(shader);
+    let material = Material::new(
+        MaterialConfig {
+            shader,
+            topology: wgpu::PrimitiveTopology::TriangleStrip,
+            uniforms: color,
+        },
+        renderer,
+    );
     scene.set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
 }

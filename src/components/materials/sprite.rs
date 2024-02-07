@@ -104,7 +104,6 @@ impl MaterialTrait for SpriteMaterial {
             multiview: None,
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
         });
-        println!("format: {:?}", renderer.swapchain_format);
         self.pipeline = Some(pipeline);
         self.pipeline.as_ref().unwrap()
     }
@@ -128,7 +127,6 @@ impl SpriteMaterial {
                     .to_string()
             }
         };
-        println!("shader_text: {}", shader_text);
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader Module"),
             source: ShaderSource::Wgsl(shader_text.into()),

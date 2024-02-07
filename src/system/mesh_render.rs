@@ -2,11 +2,8 @@ use wgpu::{CommandEncoder, StoreOp, VertexBufferLayout};
 
 use crate::{
     components::{
-        instance::Instance,
-        lights::light::LightTrait,
-        material::MaterialTrait,
-        mesh::Mesh,
-        perspective_camera::{CameraTrait, PerspectiveCamera},
+        instance::Instance, lights::light::LightTrait, material::MaterialTrait, mesh::Mesh,
+        perspective_camera::CameraTrait,
     },
     entity::Entity,
     renderer::Renderer,

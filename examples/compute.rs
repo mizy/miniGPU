@@ -46,7 +46,7 @@ async fn run_compute() {
         cpass.set_pipeline(&compute_pipeline);
         cpass.set_bind_group(0, &bind_group, &[]);
         cpass.insert_debug_marker("compute demo");
-        cpass.dispatch_workgroups(1024, 1, 1);
+        cpass.dispatch_workgroups(2, 1, 1);
     }
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
@@ -71,7 +71,7 @@ async fn run_compute() {
     let view = buffer_slice.get_mapped_range();
     let data: &[u32] = bytemuck::cast_slice(&view);
     println!("length of data: {}", data.len());
-    println!("top 10 of data: {:?}", &data[..10]);
+    println!("top 10 of data: {:?}", &data[..100]);
 }
 
 fn make_data(device: &wgpu::Device) -> (wgpu::Buffer, wgpu::BindGroupLayout, wgpu::BindGroup) {
