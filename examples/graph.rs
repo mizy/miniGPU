@@ -6,12 +6,7 @@ use ::mini_gpu::{
 };
 use image::{ImageBuffer, Rgba};
 use mini_gpu::{
-    components::{
-        material::{Material, MaterialConfig, MaterialTrait},
-        materials::sprite::SpriteMaterialConfig,
-    },
-    mini_gpu::MiniGPUConfig,
-    utils::{test_xyz, texture},
+    components::materials::sprite::SpriteMaterialConfig, mini_gpu::MiniGPUConfig, utils::texture,
 };
 use winit::{
     event::{Event, WindowEvent},

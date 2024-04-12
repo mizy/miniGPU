@@ -3,10 +3,7 @@ use glam::Vec3;
 use crate::{
     components::{
         material::MaterialTrait,
-        materials::{
-            image::{Image, ImageConfig},
-            sprite::{SpriteMaterial, SpriteMaterialConfig},
-        },
+        materials::sprite::{SpriteMaterial, SpriteMaterialConfig},
         mesh::Mesh,
     },
     renderer::Renderer,

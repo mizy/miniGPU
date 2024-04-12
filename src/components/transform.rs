@@ -9,21 +9,16 @@ pub struct Transform {
     pub scale: glam::Vec3,
     pub matrix: glam::Mat4,
     pub global_matrix: glam::Mat4,
-    pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
     pub buffer: wgpu::Buffer,
 }
 
 impl Transform {
     pub fn new(renderer: &Renderer, position: Vec3, rotation: Quat, scale: Vec3) -> Transform {
-        let (bind_group, bind_group_layout, buffer) =
-            Self::make_bind_group(Mat4::default(), renderer);
+        let buffer = Self::make_buffer(Mat4::default(), renderer);
         Transform {
             position,
             rotation,
             scale,
-            bind_group,
-            bind_group_layout,
             buffer,
             matrix: Mat4::from_scale_rotation_translation(scale, rotation, position),
             global_matrix: Mat4::default(),
@@ -53,39 +48,14 @@ impl Transform {
         self.global_matrix = parent_global_matrix * self.matrix;
     }
 
-    fn make_bind_group(
-        mat: Mat4,
-        renderer: &Renderer,
-    ) -> (wgpu::BindGroup, wgpu::BindGroupLayout, wgpu::Buffer) {
+    fn make_buffer(mat: Mat4, renderer: &Renderer) -> (wgpu::Buffer) {
         let device = &renderer.device;
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&mat.to_cols_array()),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Camera Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Camera Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        });
-        (bind_group, bind_group_layout, buffer)
+        buffer
     }
 
     pub fn update_bind_group(&mut self, renderer: &Renderer) {}

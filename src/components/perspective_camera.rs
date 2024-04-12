@@ -44,7 +44,7 @@ impl PerspectiveCamera {
             ),
             config.position,
         );
-        let buffer = Self::make_bind_group(uniform, renderer);
+        let buffer = Self::make_buffer(uniform, renderer);
         let camera = PerspectiveCamera {
             config,
             bind_index: 0,
@@ -53,7 +53,7 @@ impl PerspectiveCamera {
         camera
     }
 
-    fn make_bind_group(uniform: CameraUniform, renderer: &Renderer) -> wgpu::Buffer {
+    fn make_buffer(uniform: CameraUniform, renderer: &Renderer) -> wgpu::Buffer {
         let device = &renderer.device;
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),

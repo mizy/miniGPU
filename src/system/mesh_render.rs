@@ -108,6 +108,7 @@ impl MeshRender {
             layout: &bind_group_layout,
             entries: &bind_group_entries.as_slice(),
         });
+        // env bind group use group 1, user's bind use group 0
         env_bind_groups.push(EnvBindGroup {
             bind_group: bind_group,
             bind_group_layout: bind_group_layout,

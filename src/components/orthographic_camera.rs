@@ -46,7 +46,7 @@ impl OrthographicCamera {
             ),
             config.position,
         );
-        let buffer = Self::make_bind_group(uniform, renderer);
+        let buffer = Self::make_buffer(uniform, renderer);
         let camera = OrthographicCamera {
             config,
             bind_index: 0,
@@ -55,7 +55,7 @@ impl OrthographicCamera {
         camera
     }
 
-    fn make_bind_group(uniform: CameraUniform, renderer: &Renderer) -> wgpu::Buffer {
+    fn make_buffer(uniform: CameraUniform, renderer: &Renderer) -> wgpu::Buffer {
         let device = &renderer.device;
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
