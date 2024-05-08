@@ -1,35 +1,45 @@
-# bind group index
+# MiniGPU
+MiniGPU is a simple and lightweight graphics library for Rust. It is designed to be easy to use and easy to understand. It is based on the `wgpu` library and provides a simple and easy-to-use API for rendering 3D graphics and ready for gpu compute.
+now it's still in development, and the API may change.
+
+# Features
+- [x] Simple and easy-to-use API for web frontend developers
+- [x] Support for rendering 2D/3D graphics
+- [x] Build-in shader include
+- [x] ECS architecture
+- [x] Support for gpu compute
+
+# Example
+
+```sh
+# Run the examples with the `examples` directory
+cargo run --example triangle
+cargo run --example image
+cargo run --example objloader
+```
+
+# wgsl shader
+
+## bind group index
 + group(0) for material uniform
 + group(1) for camera uniform
  
 use from group(10) for other uniform binding
-# build-in shader binding
 
-- camera
-
+## build-in shader include
+you can use #include, #define, #ifdef, #endif in shader code,
+view `src/components/materials/shaderlibs` for more detail
 ```wgsl
-struct CameraUniform {
-    view_projection: mat4x4<f32>,
-    projection_matrix: mat4x4<f32>,
-    view_matrix: mat4x4<f32>,
-}
-@group(1) @binding(0) // 1.
-var<uniform> camera: CameraUniform;
+#include <CameraUniform>
+#include <VertexStruct>
+
+#define USE_CAMERA_UNIFORM
+#ifdef USE_CAMERA_UNIFORM
+#include #include <CameraUniform>
+#endif
 
 ```
-
-- location order
-
-```
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coord: vec2<f32>,
-}
-
-struct InstanceInput {
-    @location(5) model_matrix_0: vec4<f32>,
-    @location(6) model_matrix_1: vec4<f32>,
-    @location(7) model_matrix_2: vec4<f32>,
-    @location(8) model_matrix_3: vec4<f32>,
-};
-```
+ 
+# todo
+- [] force-directed graph layout render
+- [] a simple game demo

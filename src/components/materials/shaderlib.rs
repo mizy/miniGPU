@@ -8,7 +8,10 @@ lazy_static! {
             "CameraUniform".to_string(),
             include_str!("shaderlibs/camera_uniform.wgsl").to_string(),
         );
-
+        map.insert(
+            "VertexStruct".to_string(),
+            include_str!("shaderlibs/vertexstruct.wgsl").to_string(),
+        );
         map
     };
 }
