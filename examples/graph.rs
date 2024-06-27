@@ -34,7 +34,7 @@ async fn run() {
     make_test_mesh(&mut mini_gpu);
     mini_gpu::utils::camera::default_orthographic_camera(&mut mini_gpu);
     let mut camera_controller = MapController::default();
-
+    camera_controller.config.pan_speed = 0.007;
     mini_gpu
         .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
@@ -120,7 +120,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
 
     let entity_id2 = mini_gpu.scene.add_entity(Entity::new());
     sprite_entity::make_mesh(
-        glam::Vec3::new(0.5, 0.0, 0.0),
+        glam::Vec3::new(1.0, 0.0, 0.0),
         &mini_gpu.renderer,
         &mut mini_gpu.scene,
         entity_id2,
@@ -132,8 +132,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let entity_line_id = mini_gpu.scene.add_entity(Entity::new());
     mini_gpu::entity::mesh_line::make_mesh(
         &vec![
-            glam::Vec3::new(0.0, 0.0, 0.0),
-            glam::Vec3::new(0.5, 0.0, 0.0),
+            glam::Vec3::new(0.1, 0.0, 0.0),
+            glam::Vec3::new(0.9, 0.0, 0.0),
         ],
         60.0 as f32 / mini_gpu.config.width as f32,
         &mini_gpu.renderer,

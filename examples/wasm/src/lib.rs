@@ -165,7 +165,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
 
     let entity_id2 = mini_gpu.scene.add_entity(Entity::new());
     sprite_entity::make_mesh(
-        glam::Vec3::new(0.5, 0.0, 0.0),
+        glam::Vec3::new(1.0, 0.0, 0.0),
         &mini_gpu.renderer,
         &mut mini_gpu.scene,
         entity_id2,
@@ -177,8 +177,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let entity_line_id = mini_gpu.scene.add_entity(Entity::new());
     entity::mesh_line::make_mesh(
         &vec![
-            glam::Vec3::new(0.0, 0.0, 0.0),
-            glam::Vec3::new(0.5, 0.0, 0.0),
+            glam::Vec3::new(0.2, 0.0, 0.0),
+            glam::Vec3::new(0.8, 0.0, 0.0),
         ],
         60.0 as f32 / mini_gpu.config.width as f32,
         &mini_gpu.renderer,

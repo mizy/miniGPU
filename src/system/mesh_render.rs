@@ -143,7 +143,7 @@ impl MeshRender {
                 stencil_ops: None,
             }),
             timestamp_writes: None,
-            occlusion_query_set: None,
+            occlusion_query_set: None, 
         });
         let env_pipeline_layouts: &Vec<&wgpu::BindGroupLayout> = &env_bind_groups
             .iter()

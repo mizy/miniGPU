@@ -18,6 +18,9 @@ cargo run --example image
 cargo run --example objloader
 ```
 
+# WebAssembly example
+https://mizy.github.io/miniGPU/examples/wasm/
+
 # wgsl shader
 
 ## bind group index
