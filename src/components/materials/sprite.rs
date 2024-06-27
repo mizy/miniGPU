@@ -89,6 +89,7 @@ impl MaterialTrait for SpriteMaterial {
                 module: &self.shader_module,
                 entry_point: "vs_main",
                 buffers: &env_vertex_buffer_layout,
+                compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &self.shader_module,
@@ -98,6 +99,7 @@ impl MaterialTrait for SpriteMaterial {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState::default(),
             multisample: wgpu::MultisampleState::default(),

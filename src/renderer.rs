@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use winit::window::Window;
 
@@ -11,8 +11,8 @@ pub struct Renderer {
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub surface: wgpu::Surface,
-    pub window: Window,
+    pub surface: wgpu::Surface<'static>,
+    pub window: Arc<Window>,
     pub systems_map: HashMap<String, Box<dyn System>>,
     pub depth_texture: depth_texture::DepthTexture,
 }
@@ -23,9 +23,9 @@ pub struct RendererConfig {
 }
 
 impl Renderer {
-    pub async fn new(config: RendererConfig, window: Window) -> Renderer {
+    pub async fn new(config: RendererConfig, window: Arc<Window>) -> Renderer {
         let instance = wgpu::Instance::default();
-        let surface = unsafe { instance.create_surface(&window).unwrap() };
+        let surface =  instance.create_surface(window.clone()).unwrap() ;
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -39,9 +39,9 @@ impl Renderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
+                    required_features: wgpu::Features::empty(),
                     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                    limits: wgpu::Limits::downlevel_webgl2_defaults()
+                    required_limits: wgpu::Limits::downlevel_webgl2_defaults()
                         .using_resolution(adapter.limits()),
                 },
                 None,
@@ -59,6 +59,7 @@ impl Renderer {
             present_mode: swapchain_capabilities.present_modes[0],
             alpha_mode: swapchain_capabilities.alpha_modes[0],
             view_formats: vec![],
+            desired_maximum_frame_latency: 2,
         };
         surface.configure(&device, &surface_config);
         let depth_texture =

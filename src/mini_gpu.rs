@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use winit::window::Window;
 
 use crate::{
@@ -24,7 +26,7 @@ impl MiniGPU {
                 width: config.width,
                 height: config.height,
             },
-            window,
+            Arc::new(window),
         )
         .await;
         let mut scene = scene::Scene::new();

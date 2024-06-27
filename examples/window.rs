@@ -1,8 +1,7 @@
 use mini_gpu::mini_gpu;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
+    event_loop::{ControlFlow, EventLoop}, window::Window,
 };
 fn main() {
     pollster::block_on(run());
@@ -12,7 +11,7 @@ fn main() {
 async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new().unwrap();
-    let window = Window::new(&event_loop).unwrap();
+    let window = winit::window::WindowBuilder::new().build(&event_loop).unwrap();
     let mini_gpu = mini_gpu::MiniGPU::new(
         mini_gpu::MiniGPUConfig {
             width: 600,

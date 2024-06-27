@@ -36,6 +36,7 @@ async fn run_compute() {
         ),
         module: &cs_module,
         entry_point: "main",
+        compilation_options:  Default::default(),
     });
 
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {

@@ -55,6 +55,7 @@ impl MaterialTrait for Material {
                 module: &self.shader_module,
                 entry_point: "vs_main",
                 buffers: &env_vertex_buffer_layout,
+                compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &self.shader_module,
@@ -64,10 +65,17 @@ impl MaterialTrait for Material {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState {
                 topology: self.config.topology, // 1.
-                strip_index_format: None,
+                strip_index_format: { 
+                    if self.config.topology == wgpu::PrimitiveTopology::TriangleStrip {
+                        Some(wgpu::IndexFormat::Uint32)
+                    } else {
+                        None
+                    }
+                },
                 front_face: wgpu::FrontFace::Ccw, // 2.
                 cull_mode: None,
                 // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE

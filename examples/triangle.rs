@@ -21,7 +21,7 @@ fn main() {
 async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new().unwrap();
-    let window = Window::new(&event_loop).unwrap();
+    let window = winit::window::WindowBuilder::new().build(&event_loop).unwrap();
     let size = window.inner_size();
     let mut mini_gpu = mini_gpu::MiniGPU::new(
         mini_gpu::MiniGPUConfig {

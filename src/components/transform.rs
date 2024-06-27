@@ -48,7 +48,7 @@ impl Transform {
         self.global_matrix = parent_global_matrix * self.matrix;
     }
 
-    fn make_buffer(mat: Mat4, renderer: &Renderer) -> (wgpu::Buffer) {
+    fn make_buffer(mat: Mat4, renderer: &Renderer) -> wgpu::Buffer {
         let device = &renderer.device;
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),

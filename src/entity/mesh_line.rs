@@ -17,7 +17,7 @@ pub fn make_mesh(
     entity_id: usize,
 ) {
     let (vertices, indices) = make_width_line_vertexes(path, width);
-
+    println!("vertices: {:?}", vertices);
     let mesh = Mesh::new(vertices, indices, renderer);
     scene.set_entity_component(entity_id, mesh, "mesh");
 }
@@ -62,5 +62,6 @@ pub fn make_material(renderer: &Renderer, scene: &mut Scene, color: Vec<f32>, en
         },
         renderer,
     );
+    // material.pipeline.
     scene.set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
 }

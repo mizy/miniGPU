@@ -81,11 +81,13 @@ impl MaterialTrait for Image {
                 module: &self.shader_module,
                 entry_point: "vs_main",
                 buffers: &env_vertex_buffer_layout,
+                compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &self.shader_module,
                 entry_point: "fs_main",
                 targets: &[Some(renderer.swapchain_format.into())],
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState::default(),
             multisample: wgpu::MultisampleState::default(),
