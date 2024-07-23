@@ -1,4 +1,4 @@
-use components::{controller::map::MapController, materials::sprite::SpriteMaterialConfig};
+use components::{controller::map::MapController, materials::sprite::SpriteMaterialConfig, perspective_camera::PerspectiveCamera};
 use entity::{sprite_entity, Entity};
 use image::{ImageBuffer, Rgba};
 use ::mini_gpu::{
@@ -28,6 +28,7 @@ impl MiniGPUWeb {
         let (event_loop, mut mini_gpu_instance,now_window_id) = MiniGPUWeb::init_instance().await;
         let camera_controller = MapController::default();
         make_test_mesh(&mut mini_gpu_instance);
+        make_obj_mesh(&mut mini_gpu_instance).await;
         MiniGPUWeb {
             mini_gpu_instance,
             event_loop: Some(event_loop),
@@ -73,8 +74,6 @@ impl MiniGPUWeb {
         mini_gpu_instance
             .renderer
             .add_system("render".to_string(), Box::new(MeshRender {}));
-            // make_test_mesh(&mut mini_gpu);
-            // test_xyz::add_xyz_line(&mut mini_gpu_instance);
 
         (event_loop,  mini_gpu_instance,now_window_id)
     }
@@ -191,4 +190,29 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         vec![1.0, 1.0, 1.0, 1.0],
         entity_line_id,
     );
+    
+    fn update_obj_map(key:String,value:&[u8]){
+        // let mut map = HashMap::new();
+        // map.insert("cube.mtl".to_string(), "examples/models/cube/cube.mtl");
+        // map.insert("cube.obj".to_string(), "examples/models/cube/cube.obj");
+        // map
+    }
+}
+
+async fn make_obj_mesh(mini_gpu: &mut MiniGPU) {
+  // let path = std::path::Path::new("examples/models/cube/cube.obj");
+  // let obj = utils::obj::load_obj_by_url(path,map, mini_gpu).await;
+  // match obj {
+  //     Ok(size) => {
+  //         println!("Loaded obj with {} vertices", size);
+  //     }
+  //     Err(e) => {
+  //         println!("Failed to load obj ({:?})", e,);
+  //     }
+  // }
+
+  // let camera = mini_gpu.scene.get_default_camera().unwrap();
+  // let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
+  // perspective_camera.config.position.z = 10.0;
+  // camera.update_bind_group(&mini_gpu.renderer);
 }

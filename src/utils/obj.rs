@@ -11,7 +11,7 @@ use crate::{
     renderer::Renderer,
 };
 
-use super::resource::{load_path, load_texture};
+use super::{resource::{load_path, load_texture}, texture::Texture};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -41,7 +41,45 @@ pub async fn load_obj(path: &std::path::Path, mini_gpu: &mut MiniGPU) -> anyhow:
 
     // check obj_materials result
     let materials =
-        make_material_map(path.parent().unwrap(), obj_materials, &mini_gpu.renderer).await?;
+        make_material_map(path.parent().unwrap(), obj_materials,
+                          &std::collections::HashMap::new()
+         , &mini_gpu.renderer).await?;
+
+    let parent_id = &mini_gpu.scene.add_default_entity();
+
+    append_mesh_children(*parent_id, mini_gpu, models, materials);
+    Ok(*parent_id)
+}
+
+pub async fn load_obj_by_url(
+    obj_path: &str,
+    dir_buffer_map: &std::collections::HashMap<String, &[u8]>,
+    mini_gpu: &mut MiniGPU,
+) -> anyhow::Result<usize> {
+    let obj_text = dir_buffer_map.get(obj_path).unwrap();
+    let mut obj_reader = BufReader::new(Cursor::new(obj_text));
+    let (models, obj_materials) = tobj::load_obj_buf_async(
+        &mut obj_reader,
+        &tobj::LoadOptions {
+            triangulate: true,
+            single_index: true,
+            ..Default::default()
+        },
+        |p| async move {
+            let mtl_text = dir_buffer_map.get(&p).unwrap();
+            tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mtl_text)))
+        },
+    )
+    .await?;
+
+    // check obj_materials result
+    let materials = make_material_map(
+        std::path::Path::new(obj_path).parent().unwrap(),
+        obj_materials,
+        dir_buffer_map,
+        &mini_gpu.renderer,
+    )
+    .await?;
 
     let parent_id = &mini_gpu.scene.add_default_entity();
 
@@ -52,6 +90,7 @@ pub async fn load_obj(path: &std::path::Path, mini_gpu: &mut MiniGPU) -> anyhow:
 pub async fn make_material_map<'a>(
     material_path: &'a std::path::Path,
     obj_materials: Result<Vec<tobj::Material>, tobj::LoadError>,
+    dir_buffer_map: &'a std::collections::HashMap<String, &[u8]>,
     renderer: &Renderer,
 ) -> anyhow::Result<Vec<Box<dyn MaterialTrait>>> {
     let mut materials: Vec<Box<dyn MaterialTrait>> = Vec::new();
@@ -65,12 +104,19 @@ pub async fn make_material_map<'a>(
                 continue;
             }
         }
-        println!("m.diffuse_texture: {:?}", m.diffuse_texture);
+
         let diffuse_path = material_path.join(m_string);
         let diffuse_path_string = diffuse_path.to_str().unwrap();
         // use different material here,but we now only have image material
-        let diffuse_texture =
-            load_texture(diffuse_path_string, &renderer.device, &renderer.queue).await?;
+
+        let diffuse_buffer = dir_buffer_map.get(diffuse_path_string);
+        let diffuse_texture:Texture  = {
+            if let Some(buffer) = diffuse_buffer {
+              Texture::from_bytes(&renderer.device, &renderer.queue, &buffer, diffuse_path_string)?
+            }else{
+              load_texture(diffuse_path_string, &renderer.device, &renderer.queue).await?
+            }
+        };
 
         let material = materials::image::Image::new(
             materials::image::ImageConfig {
@@ -100,13 +146,13 @@ pub fn append_mesh_children(
         .map(|m| mini_gpu.scene.add_component(m))
         .collect();
     models.into_iter().for_each(|model| {
-        let mateiral_index = material_ids[model.mesh.material_id.unwrap_or(0)];
+        let material_index = material_ids[model.mesh.material_id.unwrap_or(0)];
         let mesh = build_mesh(&mini_gpu.renderer, model.mesh);
         let mut child = Entity::new();
         child.name = model.name;
         let mesh_index = mini_gpu.scene.add_component(mesh);
         child.set_component_index("mesh", mesh_index);
-        child.set_component_index("material", mateiral_index);
+        child.set_component_index("material", material_index);
         let _ = &mini_gpu.scene.add_entity_child(parent, child);
         i += 1;
     });
