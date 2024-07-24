@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use components::{controller::map::MapController, materials::sprite::SpriteMaterialConfig, perspective_camera::PerspectiveCamera};
 use entity::{sprite_entity, Entity};
 use image::{ImageBuffer, Rgba};
@@ -17,7 +19,11 @@ pub struct MiniGPUWeb {
     camera_controller: MapController,
     now_window_id: winit::window::WindowId,
     event_loop: Option<EventLoop<()>>,
+    assets_buffer_map:HashMap<String,Vec<u8>>,
 }
+
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
 #[wasm_bindgen]
 impl MiniGPUWeb {
     #[wasm_bindgen(constructor)]
@@ -34,6 +40,7 @@ impl MiniGPUWeb {
             event_loop: Some(event_loop),
             now_window_id,
             camera_controller,
+            assets_buffer_map:HashMap::new(),
         }
     }
 
@@ -52,9 +59,10 @@ impl MiniGPUWeb {
                     let dst = doc.get_element_by_id("wasm-example")?;
                     let canvas = window.canvas().unwrap();
                     let canvas_ele = web_sys::Element::from(canvas);
-                    let canvas_html: HtmlCanvasElement = canvas_ele.dyn_into().unwrap();
-                    canvas_html.set_width(800);
-                    canvas_html.set_height(600);
+                    let canvas_html: HtmlCanvasElement = canvas_ele.dyn_into().unwrap(); 
+                    let style = canvas_html.style();
+                    style.set_property("width", &format!("{}px", WIDTH)).expect("设置宽度失败");
+                    style.set_property("height", &format!("{}px", HEIGHT)).expect("设置高度失败");
                     dst.append_child(&canvas_html).ok()?;
                     Some(())
                 })
@@ -65,8 +73,8 @@ impl MiniGPUWeb {
 
         let mut mini_gpu_instance = mini_gpu::MiniGPU::new(
             mini_gpu::MiniGPUConfig {
-                width: 800,
-                height: 600,
+                width: WIDTH*2,
+                height: HEIGHT*2,
             },
             window,
         )
@@ -122,6 +130,10 @@ impl MiniGPUWeb {
         .unwrap(); 
     }
 
+    #[wasm_bindgen]
+    pub fn update_obj_map(&mut self,key:String,value:Vec<u8>){
+       self.assets_buffer_map.insert(key,value);
+    }
 }
 
 fn create_solid_color_image(width: u32, height: u32, color: [u8; 4]) -> image::DynamicImage {
@@ -191,13 +203,6 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         vec![0.0, 1.0, 1.0, 1.0],
         entity_line_id,
     );
-    
-    fn update_obj_map(key:String,value:&[u8]){
-        // let mut map = HashMap::new();
-        // map.insert("cube.mtl".to_string(), "examples/models/cube/cube.mtl");
-        // map.insert("cube.obj".to_string(), "examples/models/cube/cube.obj");
-        // map
-    }
 }
 
 async fn make_obj_mesh(mini_gpu: &mut MiniGPU) {
