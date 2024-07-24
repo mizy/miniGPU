@@ -49,7 +49,7 @@ impl MaterialTrait for Material {
             push_constant_ranges: &[],
         });
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Render Pipeline Material"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &self.shader_module,
@@ -86,7 +86,11 @@ impl MaterialTrait for Material {
                 conservative: false,
             },
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
-            multisample: wgpu::MultisampleState::default(),
+            multisample: wgpu::MultisampleState{
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
             multiview: None,
         });
         self.pipeline = Some(pipeline);

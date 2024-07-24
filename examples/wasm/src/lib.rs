@@ -138,7 +138,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mut mini_gpu.scene,
         entity_id,
     );
-    let img = create_solid_color_image(256, 256, [255, 0, 0, 255]);
+    let bytes = include_bytes!("../../case2.png");
+    let img = image::load_from_memory(bytes).unwrap();
     let texture = texture::Texture::from_image(
         &mini_gpu.renderer.device,
         &mini_gpu.renderer.queue,
@@ -150,8 +151,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mini_gpu.renderer,
         &mut mini_gpu.scene,
         SpriteMaterialConfig {
-            width: texture.size.width as f32 / mini_gpu.config.width as f32,
-            height: texture.size.height as f32 / mini_gpu.config.width as f32,
+            width: 200.0 / mini_gpu.config.width as f32,
+            height: 200.0 / mini_gpu.config.width as f32,
             radial: true,
             texture: Some(texture),
             ..Default::default()
@@ -179,7 +180,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
             glam::Vec3::new(0.2, 0.0, 0.0),
             glam::Vec3::new(0.8, 0.0, 0.0),
         ],
-        60.0 as f32 / mini_gpu.config.width as f32,
+        30.0 as f32 / mini_gpu.config.width as f32,
         &mini_gpu.renderer,
         &mut mini_gpu.scene,
         entity_line_id,
@@ -187,7 +188,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     entity::mesh_line::make_material(
         &mini_gpu.renderer,
         &mut mini_gpu.scene,
-        vec![1.0, 1.0, 1.0, 1.0],
+        vec![0.0, 1.0, 1.0, 1.0],
         entity_line_id,
     );
     

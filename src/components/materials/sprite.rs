@@ -83,7 +83,7 @@ impl MaterialTrait for SpriteMaterial {
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Render Pipeline Sprite"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &self.shader_module,
@@ -102,7 +102,11 @@ impl MaterialTrait for SpriteMaterial {
                 compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState::default(),
-            multisample: wgpu::MultisampleState::default(),
+            multisample: wgpu::MultisampleState{
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
             multiview: None,
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
         });
