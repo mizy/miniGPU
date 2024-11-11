@@ -46,3 +46,6 @@ view `src/components/materials/shaderlibs` for more detail
 # todo
 - [] force-directed graph layout render
 - [] a simple game demo
+
+# weakness
+ for web platform, the wasm file is huge, and also dont imporve a lot for performance
