@@ -113,7 +113,7 @@ impl MapController {
     }
 
     pub fn update_orthographic(&mut self, camera: &mut OrthographicCamera) {
-        if self.mouse_left_pressed {
+        if self.mouse_right_pressed {
             let dis = self.mouse_now_pos - self.before_pos;
             let camera_look_at = (camera.config.target - camera.config.position).normalize();
             let camera_right = camera_look_at.cross(-camera.config.up).normalize();
@@ -123,7 +123,7 @@ impl MapController {
             camera.config.position += camera_move;
             camera.config.target += camera_move;
             self.before_pos = self.mouse_now_pos;
-        } else if self.mouse_right_pressed {
+        } else if self.mouse_left_pressed {
             let dis = self.mouse_now_pos - self.before_pos;
             let camera_look_at = camera.config.target - camera.config.position;
             let camera_look_at_norm = camera_look_at.normalize();

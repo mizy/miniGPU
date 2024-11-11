@@ -1,9 +1,6 @@
-use std::{fs::File, io::{BufReader, Cursor}};
-
 use anyhow::Ok;
-use tobj::Model;
+use gltf::{buffer::Data, iter::Materials, Document};
 use wgpu::util::DeviceExt;
-use gltf::{ Gltf};
 
 use crate::{
     components::{material::MaterialTrait, materials, mesh::Mesh},
@@ -12,8 +9,7 @@ use crate::{
     renderer::Renderer,
 };
 
-use super::{resource::{load_path, load_texture}, texture::Texture};
-
+use super::texture::Texture;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelVertex {
@@ -22,128 +18,121 @@ pub struct ModelVertex {
     pub normal: [f32; 3],
 }
 
-pub async fn load_gltf(glb_model: &[u8] , mini_gpu: &mut MiniGPU) -> anyhow::Result<usize> {
+pub async fn load_gltf(glb_model: &[u8], mini_gpu: &mut MiniGPU) -> anyhow::Result<usize> {
     // check obj_materials result
-    let gltf = Gltf::from_slice(glb_model)?;
-    let materials = if let materials = gltf.materials() {
-    for material in materials {
-      material.pbr_metallic_roughness().base_color_texture().map
-    } 
-    let materials =
-        make_material_map(path.parent().unwrap(), obj_materials,
-                          &std::collections::HashMap::new()
-         , &mini_gpu.renderer).await?;
+    let (gltf, buffers, images) = gltf::import_slice(glb_model)?;
+    let materials = gltf.materials();
+    let materials_map = make_material_map(materials, images, &mini_gpu.renderer)?;
 
     let parent_id = &mini_gpu.scene.add_default_entity();
-
-    append_mesh_children(*parent_id, mini_gpu, models, materials);
+    append_mesh_children(*parent_id, mini_gpu, &gltf, &buffers, &materials_map);
     Ok(*parent_id)
 }
 
-pub async fn load_obj_by_url(
-    obj_path: &str,
-    dir_buffer_map: &std::collections::HashMap<String, &[u8]>,
-    mini_gpu: &mut MiniGPU,
-) -> anyhow::Result<usize> {
-    let obj_text = dir_buffer_map.get(obj_path).unwrap();
-    let mut obj_reader = BufReader::new(Cursor::new(obj_text));
-    let (models, obj_materials) = tobj::load_obj_buf_async(
-        &mut obj_reader,
-        &tobj::LoadOptions {
-            triangulate: true,
-            single_index: true,
-            ..Default::default()
-        },
-        |p| async move {
-            let mtl_text = dir_buffer_map.get(&p).unwrap();
-            tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mtl_text)))
-        },
-    )
-    .await?;
-
-    // check obj_materials result
-    let materials = make_material_map(
-        std::path::Path::new(obj_path).parent().unwrap(),
-        obj_materials,
-        dir_buffer_map,
-        &mini_gpu.renderer,
-    )
-    .await?;
-
-    let parent_id = &mini_gpu.scene.add_default_entity();
-
-    append_mesh_children(*parent_id, mini_gpu, models, materials);
-    Ok(*parent_id)
-}
-
-pub async fn make_material_map<'a>(
-    material_path: &'a std::path::Path,
-    obj_materials: Result<Vec<gltf::Material>, gltf::Error>,
-    dir_buffer_map: &'a std::collections::HashMap<String, &[u8]>,
+pub fn make_material_map<'a>(
+    materials: Materials,
+    images: Vec<gltf::image::Data>,
     renderer: &Renderer,
 ) -> anyhow::Result<Vec<Box<dyn MaterialTrait>>> {
-    let mut materials: Vec<Box<dyn MaterialTrait>> = Vec::new();
-    for m in obj_materials? {
-        let mut m_string = m.name(); 
-        m.  
-      
-        let diffuse_texture:Texture  = Texture::from_bytes(&renderer.device, &renderer.queue, &buffer, diffuse_path_string)?;
+    let mut material_vec: Vec<Box<dyn MaterialTrait>> = Vec::new();
 
+    for material in materials {
+        let mut diffuse_texture: Option<Texture> = None;
+
+        // 检查是否有基础颜色纹理
+        if let Some(texture_info) = material.pbr_metallic_roughness().base_color_texture() {
+            let texture = texture_info.texture();
+            let image_index = texture.source().index();
+            let image_data = &images[image_index];
+
+            // 创建纹理
+            diffuse_texture = Some(Texture::from_bytes(
+                &renderer.device,
+                &renderer.queue,
+                &image_data.pixels,
+                &texture.name().unwrap_or("Unnamed texture").to_string(),
+            )?);
+        }
+
+        // 创建材质
         let material = materials::image::Image::new(
             materials::image::ImageConfig {
-                name: m.name,
-                width: diffuse_texture.size.width,
-                height: diffuse_texture.size.height,
-                texture: Some(diffuse_texture),
+                name: material.name().unwrap_or("Unnamed image").to_string(),
+                width: diffuse_texture.as_ref().map_or(1, |t| t.size.width),
+                height: diffuse_texture.as_ref().map_or(1, |t| t.size.height),
+                texture: diffuse_texture,
                 ..Default::default()
             },
             &renderer,
         );
-        materials.push(Box::new(material));
-        break;
+
+        material_vec.push(Box::new(material));
     }
-    Ok(materials)
+
+    Ok(material_vec)
 }
 
 pub fn append_mesh_children(
     parent: usize,
     mini_gpu: &mut MiniGPU,
-    models: Vec<Model>,
-    materials: Vec<Box<dyn MaterialTrait>>,
+    model: &Document,
+    buffers: &Vec<gltf::buffer::Data>,
+    materials: &Vec<Box<dyn MaterialTrait>>,
 ) -> usize {
-    let mut i = 0;
     let material_ids: Vec<usize> = materials
         .into_iter()
         .map(|m| mini_gpu.scene.add_component(m))
         .collect();
-    models.into_iter().for_each(|model| {
-        let material_index = material_ids[model.mesh.material_id.unwrap_or(0)];
-        let mesh = build_mesh(&mini_gpu.renderer, model.mesh);
-        let mut child = Entity::new();
-        child.name = model.name;
-        let mesh_index = mini_gpu.scene.add_component(mesh);
-        child.set_component_index("mesh", mesh_index);
-        child.set_component_index("material", material_index);
-        let _ = &mini_gpu.scene.add_entity_child(parent, child);
-        i += 1;
+    let meshs = model.meshes();
+    meshs.into_iter().for_each(|mesh| {
+        let mesh_group = build_group_mesh(&mesh, mini_gpu, &buffers, &material_ids);
+        mini_gpu.scene.add_entity_child(parent, mesh_group); //添加到父节点
     });
     parent
 }
 
-pub fn build_mesh(renderer: &Renderer, mesh: tobj::Mesh) -> Mesh {
+pub fn build_group_mesh(
+    mesh: &gltf::Mesh,
+    mini_gpu: &mut MiniGPU,
+    buffers: &Vec<Data>,
+    material_ids: &Vec<usize>,
+) -> Entity {
+    let i = 0;
+    let mut group = Entity::new();
+    for primitive in mesh.primitives() {
+        let mesh_instance = build_mesh(&mini_gpu.renderer, &primitive, &buffers);
+        let mut child = Entity::new();
+        child.name = format!("{}-primitive-{}", mesh.name().unwrap_or("Unnamed mesh"), i);
+        let primitive_mateiral_index = primitive.material().index().unwrap_or(0);
+        let material_index = material_ids[primitive_mateiral_index];
+        let mesh_index = mini_gpu.scene.add_component(mesh_instance);
+        child.set_component_index("mesh", mesh_index);
+        child.set_component_index("material", material_index);
+
+        let child_id = mini_gpu.scene.add_entity(child);
+        group.add_child(child_id);
+    }
+    group
+}
+
+pub fn build_mesh(renderer: &Renderer, primitive: &gltf::Primitive, buffers: &Vec<Data>) -> Mesh {
     let mut vertices: Vec<f32> = Vec::new();
-    (0..mesh.positions.len() / 3).for_each(|i| {
-        vertices.append(&mut vec![
-            mesh.positions[i * 3],
-            mesh.positions[i * 3 + 1],
-            mesh.positions[i * 3 + 2],
-            mesh.texcoords[i * 2],
-            mesh.texcoords[i * 2 + 1],
-            mesh.normals[i * 3],
-            mesh.normals[i * 3 + 1],
-            mesh.normals[i * 3 + 2],
-        ])
-    });
+    let mut indices: Vec<u32> = Vec::new();
+    let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+    let positions = reader.read_positions().unwrap();
+    let normals = reader.read_normals().unwrap();
+    let tex_coords = reader.read_tex_coords(0).unwrap().into_f32();
+
+    let indices_iter = reader.read_indices().unwrap().into_u32();
+    positions
+        .zip(normals)
+        .zip(tex_coords)
+        .for_each(|((position, normal), tex_coord)| {
+            vertices.extend_from_slice(&position);
+            vertices.extend_from_slice(&tex_coord);
+            vertices.extend_from_slice(&normal);
+        });
+    indices.extend(indices_iter);
     // let mut mesh = Mesh::new(vertices, indices, renderer);
     let vertex_buffer = renderer
         .device
@@ -156,13 +145,13 @@ pub fn build_mesh(renderer: &Renderer, mesh: tobj::Mesh) -> Mesh {
         .device
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Mesh Index Buffer"),
-            contents: bytemuck::cast_slice(&mesh.indices),
+            contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
     Mesh {
         vertex_buffer,
         index_buffer,
-        num_indices: mesh.indices.len() as u32,
+        num_indices: indices.len() as u32,
         vertex_buffer_layout: get_buffer_layout(),
     }
 }
@@ -176,17 +165,17 @@ pub fn get_buffer_layout() -> wgpu::VertexBufferLayout<'static> {
             wgpu::VertexAttribute {
                 offset: 0,
                 shader_location: 0,
-                format: wgpu::VertexFormat::Float32x3,
+                format: wgpu::VertexFormat::Float32x3, // position
             },
             wgpu::VertexAttribute {
                 offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                 shader_location: 1,
-                format: wgpu::VertexFormat::Float32x2,
+                format: wgpu::VertexFormat::Float32x2, // tex_coord
             },
             wgpu::VertexAttribute {
                 offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
                 shader_location: 2,
-                format: wgpu::VertexFormat::Float32x3,
+                format: wgpu::VertexFormat::Float32x3, // normal
             },
         ],
     }

@@ -11,7 +11,10 @@ use crate::{
     renderer::Renderer,
 };
 
-use super::{resource::{load_path, load_texture}, texture::Texture};
+use super::{
+    resource::{load_path, load_texture},
+    texture::Texture,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -40,10 +43,13 @@ pub async fn load_obj(path: &std::path::Path, mini_gpu: &mut MiniGPU) -> anyhow:
     .await?;
 
     // check obj_materials result
-    let materials =
-        make_material_map(path.parent().unwrap(), obj_materials,
-                          &std::collections::HashMap::new()
-         , &mini_gpu.renderer).await?;
+    let materials = make_material_map(
+        path.parent().unwrap(),
+        obj_materials,
+        &std::collections::HashMap::new(),
+        &mini_gpu.renderer,
+    )
+    .await?;
 
     let parent_id = &mini_gpu.scene.add_default_entity();
 
@@ -110,11 +116,16 @@ pub async fn make_material_map<'a>(
         // use different material here,but we now only have image material
 
         let diffuse_buffer = dir_buffer_map.get(diffuse_path_string);
-        let diffuse_texture:Texture  = {
+        let diffuse_texture: Texture = {
             if let Some(buffer) = diffuse_buffer {
-              Texture::from_bytes(&renderer.device, &renderer.queue, &buffer, diffuse_path_string)?
-            }else{
-              load_texture(diffuse_path_string, &renderer.device, &renderer.queue).await?
+                Texture::from_bytes(
+                    &renderer.device,
+                    &renderer.queue,
+                    &buffer,
+                    diffuse_path_string,
+                )?
+            } else {
+                load_texture(diffuse_path_string, &renderer.device, &renderer.queue).await?
             }
         };
 

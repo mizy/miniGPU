@@ -124,7 +124,7 @@ impl Scene {
         if self.default_camera.is_none() {
             return None;
         }
-        let mut camera_entity: &Entity = self.get_entity(self.default_camera.unwrap());
+        let camera_entity: &Entity = self.get_entity(self.default_camera.unwrap());
 
         Some(self.get_entity_component_mut::<Box<dyn CameraTrait>>(camera_entity, "camera"))
     }
