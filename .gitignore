@@ -133,3 +133,4 @@ types
 # Added by cargo
 
 /target
+.gitconfig
