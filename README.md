@@ -45,6 +45,9 @@ view `src/components/materials/shaderlibs` for more detail
  
 # todo
 - [] PBR material
+- [] controls enhence
+- [] orthographic camera enhence
+- [] group matrix mutiply
 - [] a simple game demo
 
 # weakness

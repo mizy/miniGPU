@@ -65,7 +65,7 @@ pub fn make_material_map<'a>(
             let mut image = image::DynamicImage::new_rgba8(512, 512);
             for x in 0..512 {
                 for y in 0..512 {
-                    image.put_pixel(x, y, image::Rgba([255, 0, 0, 255]));
+                    image.put_pixel(x, y, image::Rgba([200, 200, 200, 255]));
                 }
             }
             diffuse_texture = Some(Texture::from_image(
