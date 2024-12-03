@@ -44,7 +44,7 @@ view `src/components/materials/shaderlibs` for more detail
 ```
  
 # todo
-- [] force-directed graph layout render
+- [] PBR material
 - [] a simple game demo
 
 # weakness

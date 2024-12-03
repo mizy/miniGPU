@@ -101,15 +101,12 @@ pub async fn make_material_map<'a>(
 ) -> anyhow::Result<Vec<Box<dyn MaterialTrait>>> {
     let mut materials: Vec<Box<dyn MaterialTrait>> = Vec::new();
     for m in obj_materials? {
-        let mut m_string = "";
-        match m.diffuse_texture {
-            Some(ref name) => {
-                m_string = name;
-            }
+        let m_string = match m.diffuse_texture {
+            Some(ref name) => name,
             None => {
                 continue;
             }
-        }
+        };
 
         let diffuse_path = material_path.join(m_string);
         let diffuse_path_string = diffuse_path.to_str().unwrap();

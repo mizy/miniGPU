@@ -1,5 +1,6 @@
 use anyhow::Ok;
 use gltf::{buffer::Data, iter::Materials, Document};
+use image::GenericImage;
 use wgpu::util::DeviceExt;
 
 use crate::{
@@ -25,7 +26,7 @@ pub async fn load_gltf(glb_model: &[u8], mini_gpu: &mut MiniGPU) -> anyhow::Resu
     let materials_map = make_material_map(materials, images, &mini_gpu.renderer)?;
 
     let parent_id = &mini_gpu.scene.add_default_entity();
-    append_mesh_children(*parent_id, mini_gpu, &gltf, &buffers, &materials_map);
+    append_mesh_children(*parent_id, mini_gpu, &gltf, &buffers, materials_map);
     Ok(*parent_id)
 }
 
@@ -37,7 +38,7 @@ pub fn make_material_map<'a>(
     let mut material_vec: Vec<Box<dyn MaterialTrait>> = Vec::new();
 
     for material in materials {
-        let mut diffuse_texture: Option<Texture> = None;
+        let diffuse_texture: Option<Texture>;
 
         // 检查是否有基础颜色纹理
         if let Some(texture_info) = material.pbr_metallic_roughness().base_color_texture() {
@@ -46,11 +47,32 @@ pub fn make_material_map<'a>(
             let image_data = &images[image_index];
 
             // 创建纹理
-            diffuse_texture = Some(Texture::from_bytes(
+            diffuse_texture = Some(Texture::from_rgb_data(
                 &renderer.device,
                 &renderer.queue,
                 &image_data.pixels,
-                &texture.name().unwrap_or("Unnamed texture").to_string(),
+                image_data.width,
+                image_data.height,
+                texture.name().unwrap_or("Unnamed texture"),
+            )?);
+            if diffuse_texture.is_none() {
+                println!("diffuse_texture is none {:?}", texture);
+                println!("image_data is none {:?}", image_data);
+                continue;
+            }
+        } else {
+            println!("no base_color_texture {:?}", material.name());
+            let mut image = image::DynamicImage::new_rgba8(512, 512);
+            for x in 0..512 {
+                for y in 0..512 {
+                    image.put_pixel(x, y, image::Rgba([255, 0, 0, 255]));
+                }
+            }
+            diffuse_texture = Some(Texture::from_image(
+                &renderer.device,
+                &renderer.queue,
+                &image,
+                material.name(),
             )?);
         }
 
@@ -77,11 +99,11 @@ pub fn append_mesh_children(
     mini_gpu: &mut MiniGPU,
     model: &Document,
     buffers: &Vec<gltf::buffer::Data>,
-    materials: &Vec<Box<dyn MaterialTrait>>,
+    materials: Vec<Box<dyn MaterialTrait>>,
 ) -> usize {
     let material_ids: Vec<usize> = materials
         .into_iter()
-        .map(|m| mini_gpu.scene.add_component(m))
+        .map(|m| mini_gpu.scene.add_component::<Box<dyn MaterialTrait>>(m))
         .collect();
     let meshs = model.meshes();
     meshs.into_iter().for_each(|mesh| {
@@ -104,12 +126,22 @@ pub fn build_group_mesh(
         let mut child = Entity::new();
         child.name = format!("{}-primitive-{}", mesh.name().unwrap_or("Unnamed mesh"), i);
         let primitive_mateiral_index = primitive.material().index().unwrap_or(0);
-        let material_index = material_ids[primitive_mateiral_index];
-        let mesh_index = mini_gpu.scene.add_component(mesh_instance);
-        child.set_component_index("mesh", mesh_index);
-        child.set_component_index("material", material_index);
+        let material_index = material_ids.get(primitive_mateiral_index);
+        if material_index.is_none() {
+            println!("material_index is none {:?}", primitive.material());
+            continue;
+        }
 
         let child_id = mini_gpu.scene.add_entity(child);
+        let mesh_index = mini_gpu.scene.add_component(mesh_instance);
+
+        mini_gpu
+            .scene
+            .set_entity_component_index(child_id, mesh_index, "mesh");
+        mini_gpu
+            .scene
+            .set_entity_component_index(child_id, *material_index.unwrap(), "material");
+
         group.add_child(child_id);
     }
     group
@@ -122,7 +154,6 @@ pub fn build_mesh(renderer: &Renderer, primitive: &gltf::Primitive, buffers: &Ve
     let positions = reader.read_positions().unwrap();
     let normals = reader.read_normals().unwrap();
     let tex_coords = reader.read_tex_coords(0).unwrap().into_f32();
-
     let indices_iter = reader.read_indices().unwrap().into_u32();
     positions
         .zip(normals)

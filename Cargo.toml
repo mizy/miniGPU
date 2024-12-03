@@ -23,7 +23,7 @@ reqwest = "0.11.20"
 anyhow = "1.0.75"
 regex = "1.9.5"
 lazy_static = "1.4.0"
-gltf = "1.4.1"
+gltf = {version="1.4.1",features=["KHR_texture_transform"]}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3.69", features = ["Document", "Window", "Element", "Location"] }

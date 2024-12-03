@@ -1,5 +1,5 @@
 use anyhow::*;
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView, ImageBuffer, RgbImage};
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -19,6 +19,24 @@ impl Texture {
         label: &str,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
+        println!("image size: {:?}", img.dimensions());
+        Self::from_image(device, queue, &img, Some(label))
+    }
+
+    pub fn from_rgb_data(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        rgb_data: &[u8],
+        width: u32,
+        height: u32,
+        label: &str,
+    ) -> Result<Self> {
+        // 创建一个RGB图像缓冲区
+        let img_buffer: RgbImage = ImageBuffer::from_raw(width, height, rgb_data.to_vec())
+            .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer from raw data"))?;
+
+        // 将RGB图像缓冲区转换为DynamicImage
+        let img = DynamicImage::ImageRgb8(img_buffer);
         println!("image size: {:?}", img.dimensions());
         Self::from_image(device, queue, &img, Some(label))
     }
@@ -45,7 +63,9 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST| wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
 

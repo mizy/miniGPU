@@ -1,10 +1,7 @@
-use std::borrow::Cow;
-
-use bytemuck::{Pod, Zeroable};
 use wgpu::{util::DeviceExt, BlendState, ColorTargetState, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{
-    components::{material::MaterialTrait, mesh::Mesh},
+    components::material::MaterialTrait,
     renderer::Renderer,
     utils::{
         depth_texture,
@@ -102,7 +99,7 @@ impl MaterialTrait for SpriteMaterial {
                 compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState::default(),
-            multisample: wgpu::MultisampleState{
+            multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,

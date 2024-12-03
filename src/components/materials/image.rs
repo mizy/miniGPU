@@ -110,6 +110,9 @@ impl Image {
             label: Some("Shader Module"),
             source: ShaderSource::Wgsl(Cow::Borrowed(shader_text)),
         });
+        if config.texture.is_none() {
+            panic!("texture is none");
+        }
         let texture = config.texture.unwrap();
         if config.width == 0 {
             config.width = texture.size.width;
