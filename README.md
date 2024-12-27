@@ -52,3 +52,8 @@ view `src/components/materials/shaderlibs` for more detail
 
 # weakness
  for web platform, the wasm file is huge, and also dont imporve a lot for performance
+
+# git
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_rsa_account1
+ssh-add ~/.ssh/id_rsa_account2

@@ -24,13 +24,17 @@ pub struct MapController {
 pub struct MapControllerConfig {
     pub rotate_speed: f32,
     pub pan_speed: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Default for MapControllerConfig {
     fn default() -> Self {
         MapControllerConfig {
             rotate_speed: 0.02,
-            pan_speed: 0.002,
+            pan_speed: 1.,
+            width: 800.,
+            height: 600.,
         }
     }
 }
@@ -148,11 +152,26 @@ impl MapController {
             let dis = self.mouse_now_pos - self.before_pos;
             let camera_look_at = (camera.config.target - camera.config.position).normalize();
             let camera_right = camera_look_at.cross(-camera.config.up).normalize();
-            let camera_forward = camera_look_at.cross(camera_right).normalize();
-            let camera_move = camera_right * dis.x * self.config.pan_speed
-                + camera_forward * dis.y * self.config.pan_speed;
+            let camera_up = camera.config.up.normalize();
+
+            // 计算每个像素对应的世界坐标系中的距离
+            let view_height = 2.0
+                * (camera.config.fov.to_radians() / 2.0).tan()
+                * camera.config.position.distance(camera.config.target);
+            let view_width = view_height * self.config.width / self.config.height;
+            let pan_speed_x = view_width / self.config.width;
+            let pan_speed_y = view_height / self.config.height;
+
+            // 计算相机移动向量
+            let camera_move = (camera_right * dis.x * pan_speed_x
+                + camera_up * dis.y * pan_speed_y)
+                * self.config.pan_speed;
+
+            // 更新相机位置和目标
             camera.config.position += camera_move;
             camera.config.target += camera_move;
+
+            // 更新鼠标位置
             self.before_pos = self.mouse_now_pos;
         } else if self.mouse_right_pressed {
             let dis = self.mouse_now_pos - self.before_pos;
