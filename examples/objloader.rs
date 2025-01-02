@@ -31,8 +31,8 @@ async fn run() {
     .await;
     make_test_mesh(&mut mini_gpu).await;
     let mut camera_controller = MapController::default();
-    camera_controller.config.width = size.width as f32;
-    camera_controller.config.height = size.height as f32;
+    camera_controller.config.width = mini_gpu.renderer.viewport.width;
+    camera_controller.config.height = mini_gpu.renderer.viewport.height;
 
     mini_gpu
         .renderer

@@ -11,6 +11,8 @@ use crate::{
 pub fn default_orthographic_camera(mini_gpu: &mut MiniGPU) {
     let mut camera = OrthographicCamera::new(
         OrthographicCameraConfig {
+            width: mini_gpu.config.width as f32,
+            aspect: mini_gpu.config.width as f32 / mini_gpu.config.height as f32,
             ..Default::default()
         },
         &mini_gpu.renderer,

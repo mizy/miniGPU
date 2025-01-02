@@ -2,7 +2,9 @@ use std::{collections::HashMap, sync::Arc};
 
 use winit::window::Window;
 
-use crate::{scene::Scene, system::system::System, utils::depth_texture};
+use crate::{
+    components::viewport::Viewport, scene::Scene, system::system::System, utils::depth_texture,
+};
 
 pub struct Renderer {
     pub config: RendererConfig,
@@ -15,6 +17,7 @@ pub struct Renderer {
     pub window: Arc<Window>,
     pub systems_map: HashMap<String, Box<dyn System>>,
     pub depth_texture: depth_texture::DepthTexture,
+    pub viewport: Viewport,
 }
 
 pub struct RendererConfig {
@@ -25,7 +28,7 @@ pub struct RendererConfig {
 impl Renderer {
     pub async fn new(config: RendererConfig, window: Arc<Window>) -> Renderer {
         let instance = wgpu::Instance::default();
-        let surface =  instance.create_surface(window.clone()).unwrap() ;
+        let surface = instance.create_surface(window.clone()).unwrap();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -66,6 +69,7 @@ impl Renderer {
             depth_texture::DepthTexture::new(&device, &surface_config, "depth_texture");
         Renderer {
             window,
+            viewport: Viewport::new(config.width, config.height),
             config,
             surface_config,
             swapchain_format,
@@ -79,6 +83,8 @@ impl Renderer {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        self.viewport.width = width as f32;
+        self.viewport.height = height as f32;
         self.surface_config.width = width;
         self.surface_config.height = height;
         self.surface.configure(&self.device, &self.surface_config);

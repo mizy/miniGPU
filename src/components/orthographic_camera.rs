@@ -21,10 +21,10 @@ pub struct OrthographicCameraConfig {
 impl Default for OrthographicCameraConfig {
     fn default() -> Self {
         Self {
-            width: 10.0,
+            width: 10.0, // ndc width
             aspect: 1.0,
             near: 0.1,
-            far: 100.0,
+            far: 1000.0,
             position: Vec3::new(0.0, 0.0, 10.0),
             target: Vec3::new(0.0, 0.0, 0.0),
             up: Vec3::new(0.0, 1.0, 0.0),

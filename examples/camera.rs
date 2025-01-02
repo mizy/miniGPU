@@ -26,7 +26,7 @@ async fn run() {
         window,
     )
     .await;
-    test_xyz::add_xyz_line(&mut mini_gpu);
+    test_xyz::add_xyz_line(&mut mini_gpu, None);
     let mut camera_controller = MapController::default();
     mini_gpu
         .renderer

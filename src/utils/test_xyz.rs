@@ -1,6 +1,8 @@
 use crate::{
     components::{
-        material::{Material, MaterialConfig, MaterialTrait}, materials::shader::ShaderParser, mesh::Mesh
+        material::{Material, MaterialConfig, MaterialTrait},
+        materials::shader::ShaderParser,
+        mesh::Mesh,
     },
     entity,
     mini_gpu::MiniGPU,
@@ -28,19 +30,23 @@ fn fs_main(out:VertexOutput) -> @location(0) vec4f {
 }
 "#;
 
-pub fn add_xyz_line(mini_gpu: &mut MiniGPU) {
+pub fn add_xyz_line(mini_gpu: &mut MiniGPU, user_size: Option<f32>) {
+    let size = user_size.unwrap_or(0.5);
     let mesh = Mesh::new(
-        vec![0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5],
+        vec![
+            0.0, 0.0, 0.0, size, 0.0, 0.0, 0.0, size, 0.0, 0.0, 0.0, size,
+        ],
         vec![0, 1, 0, 2, 0, 3],
         &mini_gpu.renderer,
     );
     let mut shader_parser = ShaderParser::new();
-     
+
     let material_line = Material::new(
         MaterialConfig {
             shader: shader_parser
-                    .parse_shader(TEST_XYZLINE_SHADER)
-                    .to_string().to_string(),
+                .parse_shader(TEST_XYZLINE_SHADER)
+                .to_string()
+                .to_string(),
             topology: wgpu::PrimitiveTopology::LineList,
             uniforms: vec![0.],
         },

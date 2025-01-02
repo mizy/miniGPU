@@ -24,8 +24,8 @@ pub struct MapController {
 pub struct MapControllerConfig {
     pub rotate_speed: f32,
     pub pan_speed: f32,
-    pub width: f32,
-    pub height: f32,
+    pub width: f32,  // window width
+    pub height: f32, //// window height
 }
 
 impl Default for MapControllerConfig {
@@ -121,11 +121,20 @@ impl MapController {
             let dis = self.mouse_now_pos - self.before_pos;
             let camera_look_at = (camera.config.target - camera.config.position).normalize();
             let camera_right = camera_look_at.cross(-camera.config.up).normalize();
-            let camera_forward = camera_look_at.cross(camera_right).normalize();
-            let camera_move = camera_right * dis.x * self.config.pan_speed
-                + camera_forward * dis.y * self.config.pan_speed;
+            let camera_up = camera.config.up.normalize();
+            // 计算每个像素对应的世界坐标系中的距离
+            let view_width = camera.config.width;
+            let view_height = camera.config.width / camera.config.aspect;
+            let pan_speed_x = view_width / self.config.width;
+            let pan_speed_y = view_height / self.config.height;
+
+            let camera_move = (camera_right * dis.x * pan_speed_x
+                + camera_up * dis.y * pan_speed_y)
+                * self.config.pan_speed;
+
             camera.config.position += camera_move;
             camera.config.target += camera_move;
+
             self.before_pos = self.mouse_now_pos;
         } else if self.mouse_left_pressed {
             let dis = self.mouse_now_pos - self.before_pos;

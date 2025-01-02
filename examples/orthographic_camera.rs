@@ -3,6 +3,7 @@ use ::mini_gpu::{
         controller::map::MapController,
         material::MaterialTrait,
         materials::image::{Image, ImageConfig},
+        orthographic_camera::OrthographicCamera,
     },
     entity::Entity,
     mini_gpu::{self, MiniGPU},
@@ -33,11 +34,12 @@ async fn run() {
         window,
     )
     .await;
-    make_test_mesh(&mut mini_gpu);
     utils::camera::default_orthographic_camera(&mut mini_gpu);
-    test_xyz::add_xyz_line(&mut mini_gpu);
+    make_test_mesh(&mut mini_gpu).await;
+    test_xyz::add_xyz_line(&mut mini_gpu, Some(10.));
     let mut camera_controller = MapController::default();
-    camera_controller.config.pan_speed = 0.01;
+    camera_controller.config.width = mini_gpu.renderer.viewport.width;
+    camera_controller.config.height = mini_gpu.renderer.viewport.height;
 
     mini_gpu
         .renderer
@@ -68,6 +70,8 @@ async fn run() {
                                 physical_size.width as f32 / physical_size.height as f32,
                                 &mini_gpu.renderer,
                             );
+                            camera_controller.config.width = mini_gpu.renderer.viewport.width;
+                            camera_controller.config.height = mini_gpu.renderer.viewport.height;
                             mini_gpu.renderer.window.request_redraw();
                         }
                         WindowEvent::CloseRequested => target.exit(),
@@ -84,32 +88,25 @@ async fn run() {
         .unwrap();
 }
 
-fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let bytes = include_bytes!("./case.jpg");
-    let image = image::load_from_memory(bytes).unwrap();
-    let texture = Texture::from_image(
-        &mini_gpu.renderer.device,
-        &mini_gpu.renderer.queue,
-        &image,
-        Some("texture"),
-    )
-    .unwrap();
+async fn make_test_mesh(mini_gpu: &mut MiniGPU) {
+    let path = std::path::Path::new("examples/models/cube/cube.obj");
+    let obj = utils::obj::load_obj(path, mini_gpu).await;
+    match obj {
+        Ok(size) => {
+            println!("Loaded obj with {} vertices", size);
+        }
+        Err(e) => {
+            println!("Failed to load obj ({:?})", e,);
+        }
+    }
 
-    let material = Image::new(
-        ImageConfig {
-            texture: Some(texture),
-            ..Default::default()
-        },
-        &mini_gpu.renderer,
-    );
-    println!("width: {}", image.width());
-    println!("height: {}", image.height());
-    let scale = image.width() as f32 / image.height() as f32;
-    let mesh = material.make_image_mesh(scale * 1., 1., vec![1.0, 0.0, 0.0], &mini_gpu.renderer);
-
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
-    mini_gpu
-        .scene
-        .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
+    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let orthographic_camera = camera
+        .as_any()
+        .downcast_mut::<OrthographicCamera>()
+        .unwrap();
+    orthographic_camera.config.width = 10.0;
+    orthographic_camera.config.aspect = mini_gpu.renderer.viewport.aspect;
+    orthographic_camera.config.position.z = 10.0;
+    camera.update_bind_group(&mini_gpu.renderer);
 }
