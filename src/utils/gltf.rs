@@ -77,8 +77,8 @@ pub fn make_material_map<'a>(
         }
 
         // 创建材质
-        let material = materials::image::Image::new(
-            materials::image::ImageConfig {
+        let material = materials::basic::BasicMaterial::new(
+            materials::basic::BasicMaterialConfig {
                 name: material.name().unwrap_or("Unnamed image").to_string(),
                 width: diffuse_texture.as_ref().map_or(1, |t| t.size.width),
                 height: diffuse_texture.as_ref().map_or(1, |t| t.size.height),

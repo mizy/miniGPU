@@ -1,5 +1,5 @@
 use ::mini_gpu::{
-    components::controller::map::MapController, system::mesh_render::MeshRender, utils::test_xyz,
+    components::controller::map::MapController, system::mesh_render::MeshRender, utils::axis,
 };
 use mini_gpu::mini_gpu;
 use winit::{
@@ -26,7 +26,7 @@ async fn run() {
         window,
     )
     .await;
-    test_xyz::add_xyz_line(&mut mini_gpu, None);
+    axis::add_xyz_line(&mut mini_gpu, None);
     let mut camera_controller = MapController::default();
     mini_gpu
         .renderer

@@ -1,12 +1,11 @@
 use ::mini_gpu::{
     components::{
         material::MaterialTrait,
-        materials::image::{Image, ImageConfig},
+        materials::basic::{BasicMaterial, BasicMaterialConfig},
         perspective_camera::PerspectiveCamera,
     },
     entity::Entity,
-    mini_gpu,
-    mini_gpu::MiniGPU,
+    mini_gpu::{self, MiniGPU},
     system::mesh_render::MeshRender,
     utils::texture::Texture,
 };
@@ -95,8 +94,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     )
     .unwrap();
 
-    let material = Image::new(
-        ImageConfig {
+    let material = BasicMaterial::new(
+        BasicMaterialConfig {
             texture: Some(texture),
             ..Default::default()
         },

@@ -12,26 +12,25 @@ use crate::{
     },
 };
 
-pub struct Image {
+pub struct BasicMaterial {
     pipeline: Option<wgpu::RenderPipeline>,
     pub bind_group: wgpu::BindGroup,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub shader_module: wgpu::ShaderModule,
-    pub texture: texture::Texture,
-    pub config: ImageConfig,
+    pub config: BasicMaterialConfig,
 }
 
-pub struct ImageConfig {
+pub struct BasicMaterialConfig {
     pub width: u32,
     pub height: u32,
     pub shader: Option<String>,
     pub name: String,
     pub texture: Option<Texture>,
 }
-impl Default for ImageConfig {
+impl Default for BasicMaterialConfig {
     fn default() -> Self {
-        ImageConfig {
-            name: "image".to_string(),
+        BasicMaterialConfig {
+            name: "basic".to_string(),
             width: 0,
             height: 0,
             shader: None,
@@ -43,7 +42,7 @@ impl Default for ImageConfig {
 /// A material is a shader and its associated data.
 /// use vs_main and fs_main as the entry points for the vertex and fragment shaders.
 
-impl MaterialTrait for Image {
+impl MaterialTrait for BasicMaterial {
     fn as_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
@@ -99,10 +98,10 @@ impl MaterialTrait for Image {
     }
 }
 
-impl Image {
-    pub fn new(mut config: ImageConfig, renderer: &Renderer) -> Image {
+impl BasicMaterial {
+    pub fn new(mut config: BasicMaterialConfig, renderer: &Renderer) -> BasicMaterial {
         let device = &renderer.device;
-        let mut shader_text = include_str!("shaders/image.wgsl");
+        let mut shader_text = include_str!("shaders/basic.wgsl");
         if let Some(text) = config.shader.as_ref() {
             shader_text = text
         }
@@ -159,12 +158,11 @@ impl Image {
             label: Some("diffuse_bind_group"),
         });
 
-        Image {
+        BasicMaterial {
             pipeline: None,
             shader_module,
             bind_group,
             bind_group_layout,
-            texture,
             config,
         }
     }

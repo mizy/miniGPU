@@ -126,12 +126,10 @@ pub async fn make_material_map<'a>(
             }
         };
 
-        let material = materials::image::Image::new(
-            materials::image::ImageConfig {
+        let material = materials::blinn_phong::BlinnPhongMaterial::new(
+            materials::blinn_phong::BlinnPhongMaterialConfig {
                 name: m.name,
-                width: diffuse_texture.size.width,
-                height: diffuse_texture.size.height,
-                texture: Some(diffuse_texture),
+                diffuse_texture: Some(diffuse_texture),
                 ..Default::default()
             },
             &renderer,

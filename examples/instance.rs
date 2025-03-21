@@ -5,7 +5,7 @@ use ::mini_gpu::{
         controller::map::MapController,
         instance::{self, Instance},
         material::MaterialTrait,
-        materials::image::{Image, ImageConfig},
+        materials::basic::{BasicMaterial, BasicMaterialConfig},
         perspective_camera::PerspectiveCamera,
     },
     entity::Entity,
@@ -105,8 +105,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         Some("image"),
     )
     .unwrap();
-    let material = Image::new(
-        ImageConfig {
+    let material = BasicMaterial::new(
+        BasicMaterialConfig {
             texture: Some(texture),
             shader: Some(include_str!("./instance.wgsl").to_string()),
             ..Default::default()

@@ -1,14 +1,8 @@
 use ::mini_gpu::{
-    components::{
-        controller::map::MapController,
-        material::MaterialTrait,
-        materials::image::{Image, ImageConfig},
-        orthographic_camera::OrthographicCamera,
-    },
-    entity::Entity,
+    components::{controller::map::MapController, orthographic_camera::OrthographicCamera},
     mini_gpu::{self, MiniGPU},
     system::mesh_render::MeshRender,
-    utils::{self, test_xyz, texture::Texture},
+    utils::{self, axis, texture::Texture},
 };
 use winit::{
     event::{Event, WindowEvent},
@@ -36,7 +30,7 @@ async fn run() {
     .await;
     utils::camera::default_orthographic_camera(&mut mini_gpu);
     make_test_mesh(&mut mini_gpu).await;
-    test_xyz::add_xyz_line(&mut mini_gpu, Some(10.));
+    axis::add_xyz_line(&mut mini_gpu, Some(10.));
     let mut camera_controller = MapController::default();
     camera_controller.config.width = mini_gpu.renderer.viewport.width;
     camera_controller.config.height = mini_gpu.renderer.viewport.height;

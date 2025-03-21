@@ -44,6 +44,7 @@ view `src/components/materials/shaderlibs` for more detail
 ```
  
 # todo
+- [] deferred rendering
 - [] PBR material
 - [] controls enhence
 - [] orthographic camera enhence

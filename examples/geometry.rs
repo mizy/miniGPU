@@ -15,7 +15,7 @@ use mini_gpu::{
     components::{
         lights::light::LightTrait,
         material::MaterialTrait,
-        materials::image::{Image, ImageConfig},
+        materials::basic::{BasicMaterial, BasicMaterialConfig},
     },
     mini_gpu::MiniGPUConfig,
     utils::texture,
@@ -140,8 +140,8 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         "texture.jpg",
     )
     .unwrap();
-    let material = Box::new(Image::new(
-        ImageConfig {
+    let material = Box::new(BasicMaterial::new(
+        BasicMaterialConfig {
             shader: Some(include_str!("./geometry.wgsl").to_string()),
             texture: Some(texture),
             ..Default::default()
