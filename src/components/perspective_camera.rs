@@ -7,7 +7,6 @@ use crate::renderer::Renderer;
 pub struct PerspectiveCamera {
     pub config: PerspectiveCameraConfig,
     pub buffer: wgpu::Buffer,
-    pub bind_index: u32,
 }
 pub struct PerspectiveCameraConfig {
     pub position: Vec3,
@@ -17,6 +16,7 @@ pub struct PerspectiveCameraConfig {
     pub near: f32,
     pub far: f32,
     pub up: Vec3,
+    pub bind_index: u32,
 }
 impl PerspectiveCameraConfig {
     pub fn default() -> Self {
@@ -28,6 +28,7 @@ impl PerspectiveCameraConfig {
             near: 0.1,
             far: 10000.,
             up: Vec3::new(0., 1., 0.),
+            bind_index: 0,
         }
     }
 }
@@ -45,11 +46,7 @@ impl PerspectiveCamera {
             config.position,
         );
         let buffer = Self::make_buffer(uniform, renderer);
-        let camera = PerspectiveCamera {
-            config,
-            bind_index: 0,
-            buffer,
-        };
+        let camera = PerspectiveCamera { config, buffer };
         camera
     }
 
@@ -110,7 +107,7 @@ impl CameraTrait for PerspectiveCamera {
     }
 
     fn get_bind_index(&self) -> u32 {
-        self.bind_index
+        self.config.bind_index
     }
 
     fn get_buffer(&self) -> &wgpu::Buffer {

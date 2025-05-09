@@ -1,16 +1,18 @@
 use std::borrow::Cow;
 
-use bytemuck::{Pod, Zeroable};
 use wgpu::{util::DeviceExt, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{
-    components::{material::MaterialTrait, mesh::Mesh},
+    components::material::MaterialTrait,
     renderer::Renderer,
-    utils::{
-        depth_texture,
-        texture::{self, Texture},
-    },
+    utils::{depth_texture, texture::Texture},
 };
+
+use super::shader::ShaderParser;
+#[derive(Hash, Eq, PartialEq, Clone, Copy)]
+pub struct VertexFormatKey {
+    pub has_texture: bool, // 材质是否使用纹理
+}
 
 pub struct BasicMaterial {
     pipeline: Option<wgpu::RenderPipeline>,
@@ -21,20 +23,18 @@ pub struct BasicMaterial {
 }
 
 pub struct BasicMaterialConfig {
-    pub width: u32,
-    pub height: u32,
     pub shader: Option<String>,
     pub name: String,
     pub texture: Option<Texture>,
+    pub color: [f32; 4],
 }
 impl Default for BasicMaterialConfig {
     fn default() -> Self {
         BasicMaterialConfig {
             name: "basic".to_string(),
-            width: 0,
-            height: 0,
             shader: None,
             texture: None,
+            color: [1.0, 1.0, 1.0, 1.0],
         }
     }
 }
@@ -74,7 +74,7 @@ impl MaterialTrait for BasicMaterial {
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Basic Material Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &self.shader_module,
@@ -101,62 +101,93 @@ impl MaterialTrait for BasicMaterial {
 impl BasicMaterial {
     pub fn new(mut config: BasicMaterialConfig, renderer: &Renderer) -> BasicMaterial {
         let device = &renderer.device;
-        let mut shader_text = include_str!("shaders/basic.wgsl");
-        if let Some(text) = config.shader.as_ref() {
-            shader_text = text
-        }
+        let has_texture = config.texture.is_some();
+        let shader_text =
+            Self::generate_shader_text(&config.shader, &VertexFormatKey { has_texture });
+
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader Module"),
-            source: ShaderSource::Wgsl(Cow::Borrowed(shader_text)),
+            source: ShaderSource::Wgsl(Cow::Borrowed(&shader_text)),
         });
-        if config.texture.is_none() {
-            panic!("texture is none");
-        }
-        let texture = config.texture.unwrap();
-        if config.width == 0 {
-            config.width = texture.size.width;
-        }
-        if config.height == 0 {
-            config.height = texture.size.height;
-        }
-        config.height = texture.size.height;
-        config.texture = None; // cause texture has been moved to texture
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+        let bind_group_layout;
+        let bind_group;
+        if has_texture {
+            // 纹理渲染模式
+            let texture = config.texture.unwrap();
+            config.texture = None; // 纹理已移出
+
+            bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    // 纹理
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("texture_bind_group_layout"),
-        });
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
+                    // 采样器
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+
+            bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&texture.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                    },
+                ],
+                label: Some("texture_bind_group"),
+            });
+        } else {
+            let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Color Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[config.color]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
+            bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    // 颜色 uniform
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("color_bind_group_layout"),
+            });
+
+            bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
+                    resource: uniform_buffer.as_entire_binding(),
+                }],
+                label: Some("color_bind_group"),
+            });
+        }
 
         BasicMaterial {
             pipeline: None,
@@ -167,81 +198,19 @@ impl BasicMaterial {
         }
     }
 
-    pub fn make_image_mesh(
-        &self,
-        mut width: f32,
-        mut height: f32,
-        position: Vec<f32>,
-        renderer: &Renderer,
-    ) -> Mesh {
-        #[repr(C)]
-        #[derive(Clone, Copy, Pod, Zeroable)]
-        struct Vertex {
-            position: [f32; 3],
-            tex_coord: [f32; 2],
+    fn generate_shader_text(shader: &Option<String>, key: &VertexFormatKey) -> String {
+        let mut shader_parser = ShaderParser::new();
+        if key.has_texture {
+            shader_parser
+                .defines
+                .insert("HAS_TEXTURE".to_string(), "true".to_string());
         }
-        width = width / 2.;
-        height = height / 2.;
-        //
-        // 0----->1
-        // |
-        // |
-        // |
-        // 1
-        let vertices = vec![
-            Vertex {
-                position: [position[0] - width, position[1] - height, position[2]],
-                tex_coord: [0., 1.],
-            },
-            Vertex {
-                position: [position[0] + width, position[1] - height, position[2]],
-                tex_coord: [1., 1.],
-            },
-            Vertex {
-                position: [position[0] + width, position[1] + height, position[2]],
-                tex_coord: [1., 0.0],
-            },
-            Vertex {
-                position: [position[0] - width, position[1] + height, position[2]],
-                tex_coord: [0., 0.0],
-            },
-        ];
-        let indices = vec![0, 1, 2, 2, 3, 0];
-        let vertex_buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-        let index_buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-        let mesh = Mesh {
-            vertex_buffer,
-            index_buffer,
-            vertex_buffer_layout: wgpu::VertexBufferLayout {
-                array_stride: 5 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &[
-                    wgpu::VertexAttribute {
-                        offset: 0,
-                        shader_location: 0,
-                        format: wgpu::VertexFormat::Float32x3,
-                    },
-                    wgpu::VertexAttribute {
-                        offset: 3 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                        shader_location: 1,
-                        format: wgpu::VertexFormat::Float32x2,
-                    },
-                ],
-            },
-            num_indices: indices.len() as u32,
-        };
-        mesh
+        if let Some(shader) = shader {
+            return shader_parser.parse_shader(shader).to_string();
+        }
+
+        shader_parser
+            .parse_shader(include_str!("shaders/basic.wgsl"))
+            .to_string()
     }
 }

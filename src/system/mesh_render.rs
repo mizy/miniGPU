@@ -48,8 +48,55 @@ impl System for MeshRender {
         frame.present();
     }
 }
+const ENV_BIND_GROUP_INDEX: u32 = 1;
 
 impl MeshRender {
+    fn collect_light_bindings(
+        scene: &Scene,
+    ) -> (Vec<wgpu::BindGroupLayoutEntry>, Vec<wgpu::BindGroupEntry>) {
+        let mut bind_group_layout_entries: Vec<wgpu::BindGroupLayoutEntry> = vec![];
+        let mut bind_group_entries: Vec<wgpu::BindGroupEntry> = vec![];
+        let mut seen_bindings = std::collections::HashSet::new(); // 用于去重
+
+        scene.entities.iter().for_each(|entity| {
+            // check if entity has light component
+            if !entity.has_component("light") {
+                return;
+            }
+
+            let light = scene.get_entity_component::<Box<dyn LightTrait>>(&entity, "light");
+            let light_binding_index = light.get_bind_index();
+
+            // if seen, skip
+            if seen_bindings.contains(&light_binding_index) {
+                return;
+            }
+
+            // add to seen
+            seen_bindings.insert(light_binding_index);
+
+            // add BindGroupLayoutEntry
+            bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: light_binding_index,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            });
+
+            // add BindGroupEntry
+            bind_group_entries.push(wgpu::BindGroupEntry {
+                binding: light_binding_index,
+                resource: light.get_buffer().as_entire_binding(),
+            });
+        });
+
+        (bind_group_layout_entries, bind_group_entries)
+    }
+
     fn get_env_bind_groups(scene: &Scene, renderer: &Renderer) -> Vec<EnvBindGroup> {
         let device = &renderer.device;
         let mut env_bind_groups: Vec<EnvBindGroup> = Vec::new();
@@ -76,28 +123,9 @@ impl MeshRender {
             });
         }
 
-        // add lights bind group
-        scene.entities.iter().for_each(|entity| {
-            // each entity has only a light component
-            if !entity.has_component("light") {
-                return;
-            }
-            let light = scene.get_entity_component::<Box<dyn LightTrait>>(&entity, "light");
-            bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-                binding: light.get_bind_index(),
-                visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            });
-            bind_group_entries.push(wgpu::BindGroupEntry {
-                binding: light.get_bind_index(),
-                resource: light.get_buffer().as_entire_binding(),
-            });
-        });
+        let (light_layout_entries, light_bind_entries) = Self::collect_light_bindings(scene);
+        bind_group_layout_entries.extend(light_layout_entries);
+        bind_group_entries.extend(light_bind_entries);
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Camera Bind Group Layout"),
@@ -112,7 +140,7 @@ impl MeshRender {
         env_bind_groups.push(EnvBindGroup {
             bind_group: bind_group,
             bind_group_layout: bind_group_layout,
-            index: 1,
+            index: ENV_BIND_GROUP_INDEX,
         });
         env_bind_groups
     }
@@ -143,7 +171,7 @@ impl MeshRender {
                 stencil_ops: None,
             }),
             timestamp_writes: None,
-            occlusion_query_set: None, 
+            occlusion_query_set: None,
         });
         let env_pipeline_layouts: &Vec<&wgpu::BindGroupLayout> = &env_bind_groups
             .iter()

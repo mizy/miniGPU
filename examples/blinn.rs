@@ -1,9 +1,20 @@
 use ::mini_gpu::{
-    components::{controller::map::MapController, perspective_camera::PerspectiveCamera},
+    components::{
+        controller::map::MapController,
+        material::{Material, MaterialConfig, MaterialTrait},
+        materials::{
+            basic::{BasicMaterial, BasicMaterialConfig},
+            blinn_phong::{BlinnPhongMaterial, BlinnPhongMaterialConfig},
+        },
+        mesh::{Mesh, VertexFormat, VertexPositionNormal},
+        perspective_camera::PerspectiveCamera,
+    },
+    entity,
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
     utils::{self},
 };
+use glam::Vec3;
 use mini_gpu::mini_gpu;
 use winit::{
     event::{Event, WindowEvent},
@@ -79,16 +90,50 @@ async fn run() {
 }
 
 async fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let path = std::path::Path::new("examples/models/cube/cube.obj");
-    let obj = utils::obj::load_obj(path, mini_gpu).await;
-    match obj {
-        Ok(id) => {
-            println!("Loaded obj entitiy id {} ", id);
-        }
-        Err(e) => {
-            println!("Failed to load obj ({:?})", e,);
-        }
-    }
+    let vertices: Vec<VertexPositionNormal> = vec![
+        VertexPositionNormal {
+            position: [0.5, 0.5, 0.],
+            normal: [0., 0., 1.],
+        },
+        VertexPositionNormal {
+            position: [-0.5, 0.5, 0.],
+            normal: [0., 0., 1.],
+        },
+        VertexPositionNormal {
+            position: [0., 0., 0.],
+            normal: [0., 0., 1.],
+        },
+    ];
+
+    let mesh = Mesh::new(
+        bytemuck::cast_slice(&vertices),
+        vec![0, 1, 2],
+        VertexFormat::PositionNormal,
+        &mini_gpu.renderer,
+    );
+
+    let mut default_material_config = BlinnPhongMaterialConfig::default();
+    default_material_config.diffuse_color = Vec3::new(1.0, 0.0, 0.0);
+    let material = BlinnPhongMaterial::new(default_material_config, &mini_gpu.renderer);
+
+    // let material = BasicMaterial::new(
+    //     BasicMaterialConfig {
+    //         name: "basic_material".to_string(),
+    //         shader: None,
+    //         texture: None,
+    //         color: [1.0, 0.0, 0.0, 1.0],
+    //     },
+    //     &mini_gpu.renderer,
+    // );
+
+    let entity = entity::Entity::new();
+    let entity_id = mini_gpu.scene.add_entity(entity);
+    mini_gpu
+        .scene
+        .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
+    mini_gpu
+        .scene
+        .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
 
     let camera = mini_gpu.scene.get_default_camera().unwrap();
     let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();

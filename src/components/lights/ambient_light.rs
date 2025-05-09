@@ -47,4 +47,11 @@ impl LightTrait for AmbientLight {
     fn get_buffer(&self) -> &wgpu::Buffer {
         &self.buffer
     }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

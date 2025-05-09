@@ -7,15 +7,15 @@ struct CameraUniform {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4f,
-    @location(0) tex_coord: vec2<f32>,
-    @location(1) position: vec3<f32>,
-    @location(2) normal: vec3<f32>,
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) tex_coord: vec2<f32>,
 }
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) tex_coord: vec2<f32>,
-    @location(2) normal: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) tex_coord: vec2<f32>,
 }
 
 struct DirectionLight{
@@ -26,7 +26,7 @@ struct DirectionLight{
 
 @group(0) @binding(0) var<uniform> color: vec4f;
 @group(1) @binding(0) var<uniform> camera: CameraUniform;
-@group(1) @binding(1) var<uniform> direction_light: DirectionLight;
+@group(1) @binding(2) var<uniform> direction_light: DirectionLight;
 
 
 @vertex

@@ -1,14 +1,33 @@
 use glam::Vec3;
 
-use crate::{components::perspective_camera::*, entity::Entity, renderer};
-use std::any::Any;
+use crate::{
+    components::{
+        lights::{
+            directional_light::{DirectionalLight, DirectionalLightUniform},
+            light::LightTrait,
+        },
+        perspective_camera::*,
+    },
+    entity::Entity,
+    renderer,
+};
+use std::any::{Any, TypeId};
+const DEFAULT_CAMERA_BIND_INDEX: u32 = 0;
+const DEFAULT_LIGHT_BIND_INDEX: u32 = 1;
+
+pub struct Component {
+    ptr: *mut dyn Any,       // 指向组件实例的指针
+    type_id: TypeId,         // 存储组件的类型 ID
+    type_name: &'static str, // 存储类型名称，用于错误消息
+}
 
 #[derive(Default)]
 pub struct Scene {
     pub entities: Vec<Entity>,
     pub background_color: wgpu::Color,
     pub default_camera: Option<usize>,
-    components: Vec<*mut dyn Any>,
+    pub default_light: Option<usize>,
+    components: Vec<Component>,
 }
 impl Scene {
     pub fn new() -> Scene {
@@ -17,6 +36,7 @@ impl Scene {
             background_color: wgpu::Color::TRANSPARENT,
             components: Vec::new(),
             default_camera: None,
+            default_light: None,
         };
         instance
     }
@@ -55,14 +75,25 @@ impl Scene {
     }
 
     // make component manually memory management
-    pub fn add_component<T>(&mut self, component: T) -> usize {
+    pub fn add_component<T: Any + 'static>(&mut self, component: T) -> usize {
         let b = Box::new(component);
-        let raw_ptr = Box::into_raw(b);
-        self.components.push(raw_ptr as *mut u8);
+        let type_id = TypeId::of::<T>();
+        let type_name = std::any::type_name::<T>();
+        let raw_ptr = Box::into_raw(b) as *mut dyn Any;
+        self.components.push(Component {
+            ptr: raw_ptr,
+            type_id,
+            type_name,
+        });
         self.components.len() - 1
     }
 
-    pub fn set_entity_component<T>(&mut self, entity_id: usize, component: T, name: &str) -> usize {
+    pub fn set_entity_component<T: Any + 'static>(
+        &mut self,
+        entity_id: usize,
+        component: T,
+        name: &str,
+    ) -> usize {
         let component_ptr = self.add_component::<T>(component);
         let entity = self.entities.get_mut(entity_id).unwrap();
         entity.set_component_index(name, component_ptr);
@@ -79,28 +110,62 @@ impl Scene {
         component_id
     }
 
-    pub fn get_component<T>(&self, component_ptr: usize) -> &mut T {
-        let addr = self.components.get(component_ptr).unwrap();
-        let t = *addr as *mut T;
-        unsafe { &mut *t }
+    pub fn get_component<T: Any + 'static>(&self, component_index: usize) -> &mut T {
+        let component = self
+            .components
+            .get(component_index)
+            .expect("Invalid component index");
+
+        // 检查类型是否匹配
+        // if component.type_id != TypeId::of::<T>() {
+        //     panic!(
+        //         "Type mismatch: expected {}, but found {}",
+        //         std::any::type_name::<T>(),
+        //         component.type_name
+        //     );
+        // }
+
+        let ptr = component.ptr as *mut T;
+        assert!(!ptr.is_null(), "Component pointer is null");
+
+        unsafe { &mut *ptr }
     }
 
-    pub fn drop_component<T>(&mut self, component_ptr: usize) {
-        let addr = self.components.remove(component_ptr);
-        drop(unsafe { Box::from_raw(addr as *mut T) });
+    pub fn drop_component<T: Any + 'static>(&mut self, component_index: usize) {
+        if component_index >= self.components.len() {
+            return;
+        }
+        let component = &self.components[component_index];
+        if component.type_id != TypeId::of::<T>() {
+            panic!(
+                "Type mismatch while dropping: expected {}, but found {}",
+                std::any::type_name::<T>(),
+                component.type_name
+            );
+        }
+        let component = self.components.remove(component_index);
+        drop(unsafe { Box::from_raw(component.ptr as *mut T) });
     }
 
-    pub fn get_entity_component<T>(&self, entity: &Entity, component: &str) -> &T {
+    pub fn get_entity_component<T: Any + 'static>(&self, entity: &Entity, component: &str) -> &T {
         let component_ptr = entity.get_component_index(component);
         self.get_component::<T>(component_ptr)
     }
 
-    pub fn get_entity_component_mut<T>(&self, entity: &Entity, component: &str) -> &mut T {
+    pub fn get_entity_component_mut<T: Any + 'static>(
+        &self,
+        entity: &Entity,
+        component: &str,
+    ) -> &mut T {
         let component_ptr = entity.get_component_index(component);
         self.get_component::<T>(component_ptr)
     }
 
-    pub fn drop_entity_component<T>(&mut self, entity: &mut Entity, component: &str) {
+    pub fn drop_entity_component<T: Any + 'static>(
+        &mut self,
+        entity: &mut Entity,
+        component: &str,
+    ) {
         let component_ptr = entity.get_component_index(component);
         self.drop_component::<T>(component_ptr);
         entity.remove_component_index(component);
@@ -140,10 +205,27 @@ impl Scene {
                 near: 0.001,
                 far: 10000.,
                 up: Vec3::new(0., 1., 0.),
+                bind_index: DEFAULT_CAMERA_BIND_INDEX,
             },
             renderer,
         );
         self.set_entity_component::<Box<dyn CameraTrait>>(entity_id, Box::new(camera), "camera");
         self.default_camera = Some(entity_id);
+    }
+
+    // need default light for Blinn-Phong shading
+    pub fn add_default_directional_light(&mut self, renderer: &renderer::Renderer) {
+        let entity_id = self.add_entity(Entity::new());
+        let light = DirectionalLight::new(
+            &renderer,
+            DEFAULT_LIGHT_BIND_INDEX,
+            DirectionalLightUniform {
+                intensity: 1.,
+                direction: [1., 1., -1.],
+                color: [1., 1., 0.8, 1.0],
+            },
+        );
+        self.set_entity_component::<Box<dyn LightTrait>>(entity_id, Box::new(light), "light");
+        self.default_light = Some(entity_id);
     }
 }

@@ -32,7 +32,7 @@ fn fs_main(out:VertexOutput) -> @location(0) vec4f {
 
 pub fn add_xyz_line(mini_gpu: &mut MiniGPU, user_size: Option<f32>) {
     let size = user_size.unwrap_or(0.5);
-    let mesh = Mesh::new(
+    let mesh = Mesh::new_position_only(
         vec![
             0.0, 0.0, 0.0, size, 0.0, 0.0, 0.0, size, 0.0, 0.0, 0.0, size,
         ],

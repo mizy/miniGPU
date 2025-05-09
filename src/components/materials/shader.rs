@@ -5,12 +5,20 @@ use super::shaderlib;
 
 pub struct ShaderParser {
     pub defines: HashMap<String, String>,
-    ifdef_stack: Vec<String>,
+    ifdef_stack: Vec<IfdefState>,
     define_regex: Regex,
     define_val_regex: Regex,
     ifdef_regex: Regex,
     endif_regex: Regex,
     include_regex: Regex,
+    else_regex: Regex,
+    elseif_regex: Regex,
+}
+// 用于表示条件编译块的状态
+struct IfdefState {
+    name: String,
+    is_active: bool,   // 当前块是否处于激活状态
+    has_matched: bool, // 当前 if/elif 链中是否已经有满足的条件
 }
 
 impl ShaderParser {
@@ -21,6 +29,8 @@ impl ShaderParser {
             define_regex: Regex::new(r"^#define\s+(\w+)").unwrap(),
             define_val_regex: Regex::new(r"^#define\s+(\w+)\s+(\w+)").unwrap(),
             ifdef_regex: Regex::new(r"#ifdef\s+(\w+)").unwrap(),
+            elseif_regex: Regex::new(r"#elseif\s+(\w+)").unwrap(),
+            else_regex: Regex::new(r"#else").unwrap(),
             endif_regex: Regex::new(r"#endif").unwrap(),
             include_regex: Regex::new(r"#include\s+<(\w+)>").unwrap(),
         }
@@ -67,8 +77,46 @@ impl ShaderParser {
         let ifdef_vals = self.ifdef_regex.captures(line.trim());
         if ifdef_vals.is_some() {
             let ifdef_val = ifdef_vals.unwrap().get(1).unwrap().as_str();
-            if !self.defines.contains_key(ifdef_val) {
-                self.ifdef_stack.push(ifdef_val.to_string());
+            let is_defined = self.defines.contains_key(ifdef_val);
+
+            self.ifdef_stack.push(IfdefState {
+                name: ifdef_val.to_string(),
+                is_active: is_defined,
+                has_matched: is_defined,
+            });
+            return None;
+        }
+
+        // check for #elseif
+        let elseif_vals = self.elseif_regex.captures(line.trim());
+        if elseif_vals.is_some() {
+            if let Some(current_state) = self.ifdef_stack.last_mut() {
+                // 只有当前面的条件都不满足时，才检查当前条件
+                if !current_state.has_matched {
+                    let elseif_val = elseif_vals.unwrap().get(1).unwrap().as_str();
+                    let is_defined = self.defines.contains_key(elseif_val);
+
+                    current_state.is_active = is_defined;
+                    if is_defined {
+                        current_state.has_matched = true;
+                    }
+                } else {
+                    // 已经有一个条件满足了，所以这个分支不活跃
+                    current_state.is_active = false;
+                }
+            }
+            return None;
+        }
+
+        // check for #else
+        let else_vals = self.else_regex.captures(line.trim());
+        if else_vals.is_some() {
+            if let Some(current_state) = self.ifdef_stack.last_mut() {
+                // else 只在没有匹配到任何条件时激活
+                current_state.is_active = !current_state.has_matched;
+                if current_state.is_active {
+                    current_state.has_matched = true;
+                }
             }
             return None;
         }
@@ -89,6 +137,7 @@ impl ShaderParser {
             if shaderlib::SHADER_LIB.contains_key(include_val) {
                 let shader = shaderlib::SHADER_LIB.get(include_val).unwrap();
                 let mut parser = ShaderParser::new();
+                parser.defines = self.defines.clone();
                 let res = parser.parse_shader(shader);
                 return Some(res);
             } else {
@@ -100,8 +149,10 @@ impl ShaderParser {
         }
 
         // match normal line
-        if self.ifdef_stack.len() > 0 {
-            return None;
+        for state in &self.ifdef_stack {
+            if !state.is_active {
+                return None; // 如果在任何未激活的块中，则跳过这一行
+            }
         }
 
         Some(line.to_string())

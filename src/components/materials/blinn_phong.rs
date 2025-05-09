@@ -5,10 +5,12 @@ use glam::Vec3;
 use wgpu::{util::DeviceExt, BindGroupEntry, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{
-    components::material::MaterialTrait,
+    components::{material::MaterialTrait, materials::shader::ShaderParser},
     renderer::Renderer,
     utils::{depth_texture, texture::Texture},
 };
+
+use super::basic::VertexFormatKey;
 
 pub struct BlinnPhongMaterial {
     pipeline: Option<wgpu::RenderPipeline>,
@@ -21,7 +23,7 @@ pub struct BlinnPhongMaterial {
 /// 材质的 Uniform 数据
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
-pub struct MaterialUniform {
+pub struct BlinnUniform {
     pub diffuse_color: [f32; 3],
     pub diffuse_strength: f32,
     pub specular_color: [f32; 3],
@@ -32,7 +34,7 @@ pub struct MaterialUniform {
     pub _padding: [f32; 2],
 }
 
-impl MaterialUniform {
+impl BlinnUniform {
     pub fn new(config: &BlinnPhongMaterialConfig) -> Self {
         Self {
             diffuse_color: config.diffuse_color.to_array(),
@@ -83,12 +85,14 @@ pub struct BlinnPhongMaterialConfig {
 
     /// 材质 Uniform Buffer
     pub material_uniform_buffer: Option<wgpu::Buffer>,
+
+    pub use_texture: bool,
 }
 
 impl Default for BlinnPhongMaterialConfig {
     fn default() -> Self {
         BlinnPhongMaterialConfig {
-            diffuse_color: Vec3::new(1.0, 1.0, 1.0),
+            diffuse_color: Vec3::new(0.7, 0.7, 0.7), // gray
             diffuse_strength: 1.0,
             specular_color: Vec3::new(1.0, 1.0, 1.0),
             specular_strength: 1.0,
@@ -101,6 +105,7 @@ impl Default for BlinnPhongMaterialConfig {
             opacity: 1.0,
             shader: None,
             material_uniform_buffer: None,
+            use_texture: false,
         }
     }
 }
@@ -140,7 +145,7 @@ impl MaterialTrait for BlinnPhongMaterial {
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Blinn Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &self.shader_module,
@@ -176,19 +181,22 @@ pub const BINDING_MATERIAL_UNIFORM: u32 = 6;
 impl BlinnPhongMaterial {
     pub fn new(config: BlinnPhongMaterialConfig, renderer: &Renderer) -> BlinnPhongMaterial {
         let device = &renderer.device;
-        let mut shader_text = include_str!("shaders/blinn_phong.wgsl");
-        if let Some(text) = config.shader.as_ref() {
-            shader_text = text
-        }
+
+        let shader_text = Self::generate_shader_text(&VertexFormatKey {
+            has_texture: config.use_texture,
+        });
+        println!("shader_text for blinn: {}", shader_text);
+
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader Module"),
-            source: ShaderSource::Wgsl(Cow::Borrowed(shader_text)),
+            source: ShaderSource::Wgsl(Cow::Borrowed(&shader_text)),
         });
 
         let mut bind_groups: Vec<BindGroupEntry> = vec![];
         let mut bind_group_layouts: Vec<wgpu::BindGroupLayoutEntry> = vec![];
 
         // 处理漫反射纹理
+        //TODO: resuse the sampler here
         if let Some(diffuse_texture) = &config.diffuse_texture {
             Self::add_texture_and_sampler(
                 &mut bind_groups,
@@ -222,7 +230,7 @@ impl BlinnPhongMaterial {
         }
 
         // 创建 Uniform 数据
-        let material_uniform = MaterialUniform::new(&config);
+        let material_uniform = BlinnUniform::new(&config);
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Material Uniform Buffer"),
             contents: bytemuck::cast_slice(&[material_uniform]),
@@ -236,7 +244,7 @@ impl BlinnPhongMaterial {
 
         bind_group_layouts.push(wgpu::BindGroupLayoutEntry {
             binding: BINDING_MATERIAL_UNIFORM,
-            visibility: wgpu::ShaderStages::FRAGMENT,
+            visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
@@ -266,7 +274,7 @@ impl BlinnPhongMaterial {
         let queue = &renderer.queue;
         let config = &self.config;
         if let Some(uniform_buffer) = &config.material_uniform_buffer {
-            let material_uniform = MaterialUniform::new(config);
+            let material_uniform = BlinnUniform::new(config);
             queue.write_buffer(uniform_buffer, 0, bytemuck::cast_slice(&[material_uniform]));
         }
     }
@@ -313,5 +321,18 @@ impl BlinnPhongMaterial {
             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
             count: None,
         });
+    }
+
+    fn generate_shader_text(key: &VertexFormatKey) -> String {
+        let mut shader_parser = ShaderParser::new();
+        if key.has_texture {
+            shader_parser
+                .defines
+                .insert("HAS_TEXTURE".to_string(), "true".to_string());
+        }
+
+        shader_parser
+            .parse_shader(include_str!("shaders/blinn_phong.wgsl"))
+            .to_string()
     }
 }

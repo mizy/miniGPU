@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub fn make_mesh(position: Vec3, renderer: &Renderer, scene: &mut Scene, entity_id: usize) {
-    let mesh = Mesh::new(
+    let mesh = Mesh::new_position_only(
         vec![
             position.x, position.y, position.z, position.x, position.y, position.z, position.x,
             position.y, position.z, position.x, position.y, position.z,

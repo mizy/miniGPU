@@ -21,7 +21,9 @@ fn main() {
 async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new().unwrap();
-    let window = winit::window::WindowBuilder::new().build(&event_loop).unwrap();
+    let window = winit::window::WindowBuilder::new()
+        .build(&event_loop)
+        .unwrap();
     let size = window.inner_size();
     let mut mini_gpu = mini_gpu::MiniGPU::new(
         mini_gpu::MiniGPUConfig {
@@ -68,7 +70,7 @@ async fn run() {
 }
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let mesh = Mesh::new(
+    let mesh = Mesh::new_position_only(
         vec![0.5, 0.5, 0., -0.5, 0.5, 0., 0., 0., 0.],
         vec![0, 1, 2],
         &mini_gpu.renderer,
@@ -95,7 +97,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         );
 
     //object3 test reuse material1
-    let mesh_2 = Mesh::new(
+    let mesh_2 = Mesh::new_position_only(
         vec![-1., -1., 1., 1., 1., 0., 1., -1., 1.],
         vec![0, 1, 2],
         &mini_gpu.renderer,

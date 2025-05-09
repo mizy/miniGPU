@@ -22,7 +22,7 @@ use mini_gpu::{
 };
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     window::Window,
 };
 
@@ -49,7 +49,7 @@ async fn run() {
     let entity_id = mini_gpu.scene.add_entity(Entity::new());
     let light = DirectionalLight::new(
         &mini_gpu.renderer,
-        1,
+        2,
         DirectionalLightUniform {
             intensity: 1.,
             direction: [1., 1., -1.],
@@ -110,17 +110,20 @@ async fn run() {
 
 fn update_light(mini_gpu: &MiniGPU, light_index: usize) {
     // update light position
-    let light = mini_gpu
+    let light_trait = mini_gpu
         .scene
-        .get_component::<Box<DirectionalLight>>(light_index);
+        .get_component::<Box<dyn LightTrait>>(light_index);
     let now_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_millis();
     let delta = (now_time as f64 / 1000.) % (2. * PI);
-    light.uniform.direction[0] = f32::sin(delta as f32);
-    light.uniform.direction[2] = 1.0 * f32::cos(delta as f32);
-    light.update_buffer(&mini_gpu.renderer);
+    if let Some(light) = light_trait.as_any_mut().downcast_mut::<DirectionalLight>() {
+        println!("light.uniform.direction {:?}", light.uniform.direction);
+        light.uniform.direction[0] = f32::sin(delta as f32);
+        light.uniform.direction[2] = 1.0 * f32::cos(delta as f32);
+        light.update_buffer(&mini_gpu.renderer);
+    }
 }
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {

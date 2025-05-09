@@ -19,7 +19,7 @@ pub struct DirectionalLightUniform {
 }
 
 impl DirectionalLight {
-    pub fn new(renderer: &Renderer, index: u32, uniform: DirectionalLightUniform) -> Self {
+    pub fn new(renderer: &Renderer, bind_index: u32, uniform: DirectionalLightUniform) -> Self {
         let device = &renderer.device;
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Directional Light Buffer"),
@@ -29,7 +29,7 @@ impl DirectionalLight {
         Self {
             uniform,
             buffer,
-            bind_index: index,
+            bind_index,
         }
     }
 
@@ -47,5 +47,13 @@ impl LightTrait for DirectionalLight {
 
     fn get_bind_index(&self) -> u32 {
         self.bind_index
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }

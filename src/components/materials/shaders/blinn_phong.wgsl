@@ -1,22 +1,5 @@
-struct CameraUniform {
-    view_projection: mat4x4<f32>,
-    projection_matrix: mat4x4<f32>,
-    view_matrix: mat4x4<f32>,
-    position: vec4<f32>,
-}
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4f,
-    @location(0) tex_coord: vec2<f32>,
-    @location(1) position: vec3<f32>,
-    @location(2) normal: vec3<f32>,
-}
-
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coord: vec2<f32>,
-    @location(2) normal: vec3<f32>,
-}
+#include <CameraUniform>
+#include <VertexStruct>
 
 struct DirectionLight{
     direction: vec3<f32>,
@@ -24,11 +7,19 @@ struct DirectionLight{
     intensity: f32,
 }
 
+struct BlinnUniform {
+    diffuse_color: vec3<f32>,
+    diffuse_strength: f32,
+    specular_color: vec3<f32>,
+    specular_strength: f32,
+    shininess: f32,
+    opacity: f32,
+    _padding: vec2<f32>, // 保持 16 字节对齐
+};
+
 @group(0) @binding(0) var<uniform> color: vec4f;
-@group(1) @binding(0) var<uniform> camera: CameraUniform;
 @group(1) @binding(1) var<uniform> direction_light: DirectionLight;
-
-
+@group(1) @binding(0) var<uniform> camera: CameraUniform;
 @vertex
 fn vs_main(vertex:VertexInput) -> VertexOutput  {
   var out: VertexOutput;
@@ -36,7 +27,9 @@ fn vs_main(vertex:VertexInput) -> VertexOutput  {
   out.clip_position = clip_position;
   out.position = vertex.position;
   out.normal = vertex.normal;
+  #ifdef HAS_TEXTURE
   out.tex_coord = vertex.tex_coord; 
+  #endif
   return out;
 }
 
@@ -45,11 +38,16 @@ fn vs_main(vertex:VertexInput) -> VertexOutput  {
 var diffuse_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var diffuse_sampler: sampler;
-
+@group(0) @binding(6) var<uniform> material: BlinnUniform;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+    #ifdef HAS_TEXTURE
     let color =  textureSample(diffuse_texture, diffuse_sampler, in.tex_coord);
+    #else
+    let color = vec4<f32>(material.diffuse_color, material.opacity);
+    #endif
 
+    //todo: not use hard code ambient_strength
     let ambient_strength = 0.1;
     let ambient_color = direction_light.color * ambient_strength;
 
@@ -62,6 +60,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
 
     let specular_strength = pow(max(dot(in.normal, half_dir), 0.0), 32.0);
     let specular_color = specular_strength * direction_light.color;
+
+    // specular_strength = pow(max(dot(in.normal, half_dir), 0.0), material.shininess) * material.specular_strength;
+    // let specular_color = specular_strength * direction_light.color * material.specular_color;
 
     let result = (ambient_color + diffuse_color + specular_color) * color.rgb;
 

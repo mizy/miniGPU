@@ -31,6 +31,7 @@ impl MiniGPU {
         .await;
         let mut scene = scene::Scene::new();
         scene.add_default_camera(&renderer);
+        scene.add_default_directional_light(&renderer);
         MiniGPU {
             config,
             renderer,

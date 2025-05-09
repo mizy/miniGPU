@@ -1,8 +1,9 @@
-use bytemuck::{Pod, Zeroable};
 use glam::Vec3;
-use wgpu::util::DeviceExt;
 
-use crate::{components::mesh::Mesh, renderer::Renderer};
+use crate::{
+    components::mesh::{Mesh, VertexFormat, VertexPositionNormalTexture},
+    renderer::Renderer,
+};
 
 pub struct MakeSphereConfig {
     pub radius: f32,
@@ -108,63 +109,21 @@ pub fn make_sphere_data(config: MakeSphereConfig) -> (Vec<f32>, Vec<u32>, Vec<f3
     (vertices, indices, normals, uvs)
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coord: [f32; 2],
-    normal: [f32; 3],
-}
-
 pub fn make_sphere_mesh(config: MakeSphereConfig, renderer: &Renderer) -> Mesh {
     let (vertices, indices, normals, uvs) = make_sphere_data(config);
     let mut vertexes = Vec::new();
     for i in 0..(vertices.len() / 3) {
-        vertexes.push(Vertex {
+        vertexes.push(VertexPositionNormalTexture {
             position: [vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]],
-            tex_coord: [uvs[i * 2], uvs[i * 2 + 1]],
             normal: [normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]],
+            tex_coords: [uvs[i * 2], uvs[i * 2 + 1]],
         });
     }
-    let vertex_buffer = renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertexes),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-    let index_buffer = renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
 
-    Mesh {
-        num_indices: indices.len() as u32,
-        vertex_buffer_layout: wgpu::VertexBufferLayout {
-            array_stride: 8 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: 3 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-                wgpu::VertexAttribute {
-                    offset: 5 * std::mem::size_of::<f32>() as wgpu::BufferAddress,
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ],
-        },
-        vertex_buffer,
-        index_buffer,
-    }
+    Mesh::new(
+        bytemuck::cast_slice(&vertexes),
+        indices,
+        VertexFormat::PositionNormalTexture,
+        renderer,
+    )
 }

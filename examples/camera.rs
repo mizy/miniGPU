@@ -41,7 +41,6 @@ async fn run() {
                 match event {
                     WindowEvent::RedrawRequested => {
                         let camera = mini_gpu.scene.get_default_camera().unwrap();
-                        println!("{:?}", std::time::Instant::now().elapsed().as_millis());
                         camera_controller.update(camera);
                         camera.update_bind_group(&mini_gpu.renderer);
                         if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {

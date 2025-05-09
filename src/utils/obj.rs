@@ -156,8 +156,9 @@ pub fn append_mesh_children(
         let mesh = build_mesh(&mini_gpu.renderer, model.mesh);
         let mut child = Entity::new();
         child.name = model.name;
-        let mesh_index = mini_gpu.scene.add_component(mesh);
-        child.set_component_index("mesh", mesh_index);
+        mini_gpu
+            .scene
+            .set_entity_component::<Mesh>(child.id, mesh, "mesh");
         child.set_component_index("material", material_index);
         let _ = &mini_gpu.scene.add_entity_child(parent, child);
         i += 1;
@@ -172,34 +173,19 @@ pub fn build_mesh(renderer: &Renderer, mesh: tobj::Mesh) -> Mesh {
             mesh.positions[i * 3],
             mesh.positions[i * 3 + 1],
             mesh.positions[i * 3 + 2],
-            mesh.texcoords[i * 2],
-            mesh.texcoords[i * 2 + 1],
             mesh.normals[i * 3],
             mesh.normals[i * 3 + 1],
             mesh.normals[i * 3 + 2],
+            mesh.texcoords[i * 2],
+            mesh.texcoords[i * 2 + 1],
         ])
     });
-    // let mut mesh = Mesh::new(vertices, indices, renderer);
-    let vertex_buffer = renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Mesh Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-    let index_buffer = renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Mesh Index Buffer"),
-            contents: bytemuck::cast_slice(&mesh.indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-    Mesh {
-        vertex_buffer,
-        index_buffer,
-        num_indices: mesh.indices.len() as u32,
-        vertex_buffer_layout: get_buffer_layout(),
-    }
+    Mesh::new(
+        bytemuck::cast_slice(&vertices),
+        mesh.indices,
+        crate::components::mesh::VertexFormat::PositionNormalTexture,
+        renderer,
+    )
 }
 
 pub fn get_buffer_layout() -> wgpu::VertexBufferLayout<'static> {

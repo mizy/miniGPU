@@ -21,3 +21,7 @@ instance:
 
 objloader:
 	cargo run --example objloader
+blinn:
+	cargo run --example blinn
+geometry:
+	cargo run --example geometry

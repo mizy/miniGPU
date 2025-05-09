@@ -18,7 +18,7 @@ pub fn make_mesh(
 ) {
     let (vertices, indices) = make_width_line_vertexes(path, width);
     println!("vertices: {:?}", vertices);
-    let mesh = Mesh::new(vertices, indices, renderer);
+    let mesh = Mesh::new_position_only(vertices, indices, renderer);
     scene.set_entity_component(entity_id, mesh, "mesh");
 }
 

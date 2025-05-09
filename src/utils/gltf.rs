@@ -80,8 +80,6 @@ pub fn make_material_map<'a>(
         let material = materials::basic::BasicMaterial::new(
             materials::basic::BasicMaterialConfig {
                 name: material.name().unwrap_or("Unnamed image").to_string(),
-                width: diffuse_texture.as_ref().map_or(1, |t| t.size.width),
-                height: diffuse_texture.as_ref().map_or(1, |t| t.size.height),
                 texture: diffuse_texture,
                 ..Default::default()
             },
@@ -133,11 +131,10 @@ pub fn build_group_mesh(
         }
 
         let child_id = mini_gpu.scene.add_entity(child);
-        let mesh_index = mini_gpu.scene.add_component(mesh_instance);
 
         mini_gpu
             .scene
-            .set_entity_component_index(child_id, mesh_index, "mesh");
+            .set_entity_component(child_id, mesh_instance, "mesh");
         mini_gpu
             .scene
             .set_entity_component_index(child_id, *material_index.unwrap(), "material");
@@ -160,31 +157,16 @@ pub fn build_mesh(renderer: &Renderer, primitive: &gltf::Primitive, buffers: &Ve
         .zip(tex_coords)
         .for_each(|((position, normal), tex_coord)| {
             vertices.extend_from_slice(&position);
-            vertices.extend_from_slice(&tex_coord);
             vertices.extend_from_slice(&normal);
+            vertices.extend_from_slice(&tex_coord);
         });
     indices.extend(indices_iter);
-    // let mut mesh = Mesh::new(vertices, indices, renderer);
-    let vertex_buffer = renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Mesh Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-    let index_buffer = renderer
-        .device
-        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Mesh Index Buffer"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-    Mesh {
-        vertex_buffer,
-        index_buffer,
-        num_indices: indices.len() as u32,
-        vertex_buffer_layout: get_buffer_layout(),
-    }
+    Mesh::new(
+        bytemuck::cast_slice(&vertices),
+        indices,
+        crate::components::mesh::VertexFormat::PositionNormalTexture,
+        renderer,
+    )
 }
 
 pub fn get_buffer_layout() -> wgpu::VertexBufferLayout<'static> {
