@@ -2,6 +2,7 @@ use glam::Vec2;
 use winit::{
     event::{ElementState, KeyEvent, WindowEvent},
     keyboard::Key,
+    window,
 };
 
 use crate::components::{
@@ -9,7 +10,7 @@ use crate::components::{
     perspective_camera::{CameraTrait, PerspectiveCamera},
 };
 
-/// mouse left to rotate, right to pan
+/// mouse left to rotate, right to pan, because i want to make it like a map
 
 pub struct MapController {
     pub config: MapControllerConfig,
@@ -19,13 +20,22 @@ pub struct MapController {
     mouse_now_pos: Vec2,
     before_pos: Vec2,
     mouse_wheel_delta: f32,
+    target_distance: f32,
+    zoom_velocity: f32,
+    zoom_friction: f32,
+    min_distance: f32,
+    max_distance: f32,
 }
 
 pub struct MapControllerConfig {
     pub rotate_speed: f32,
     pub pan_speed: f32,
+    pub zoom_speed: f32,
     pub width: f32,  // window width
     pub height: f32, //// window height
+    pub min_zoom: f32,
+    pub max_zoom: f32,
+    pub scale_factor: f32,
 }
 
 impl Default for MapControllerConfig {
@@ -35,6 +45,10 @@ impl Default for MapControllerConfig {
             pan_speed: 1.,
             width: 800.,
             height: 600.,
+            zoom_speed: 1.,
+            min_zoom: 0.05,
+            max_zoom: 1000.,
+            scale_factor: 1.0,
         }
     }
 }
@@ -49,6 +63,11 @@ impl MapController {
             mouse_now_pos: Vec2::new(0., 0.),
             before_pos: Vec2::new(0., 0.),
             mouse_wheel_delta: 0.,
+            target_distance: 1.,
+            zoom_velocity: 0.,
+            zoom_friction: 0.9,
+            min_distance: 0.1,
+            max_distance: 1000.,
         }
     }
 
@@ -91,10 +110,10 @@ impl MapController {
             }
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 winit::event::MouseScrollDelta::LineDelta(_, y) => {
-                    self.mouse_wheel_delta = *y;
+                    self.mouse_wheel_delta = *y / 0.0005; // 0.0005 is a magic number to make zoom start from 1
                 }
                 winit::event::MouseScrollDelta::PixelDelta(p) => {
-                    self.mouse_wheel_delta = p.y as f32;
+                    self.mouse_wheel_delta = p.y as f32 / 0.0005;
                 }
             },
 
@@ -116,17 +135,19 @@ impl MapController {
         }
     }
 
+    // orthographic camera use left mouse to rotate, right mouse to pan, it's like a normal CAD user's habit
     pub fn update_orthographic(&mut self, camera: &mut OrthographicCamera) {
         if self.mouse_right_pressed {
             let dis = self.mouse_now_pos - self.before_pos;
+            let view_width = camera.config.width / camera.config.zoom; // 考虑缩放级别
+            let view_height = view_width / camera.config.aspect;
+
             let camera_look_at = (camera.config.target - camera.config.position).normalize();
             let camera_right = camera_look_at.cross(-camera.config.up).normalize();
             let camera_up = camera.config.up.normalize();
-            // 计算每个像素对应的世界坐标系中的距离
-            let view_width = camera.config.width;
-            let view_height = camera.config.width / camera.config.aspect;
-            let pan_speed_x = view_width / self.config.width;
-            let pan_speed_y = view_height / self.config.height;
+
+            let pan_speed_x = view_width / self.config.width / self.config.scale_factor;
+            let pan_speed_y = view_height / self.config.height / self.config.scale_factor;
 
             let camera_move = (camera_right * dis.x * pan_speed_x
                 + camera_up * dis.y * pan_speed_y)
@@ -148,11 +169,35 @@ impl MapController {
             camera.config.position =
                 radius_vec.normalize() * radius + camera.config.target + camera_up;
             self.before_pos = self.mouse_now_pos;
-        } else if self.mouse_wheel_delta != 0. {
-            let camera_look_at = (camera.config.target - camera.config.position).normalize();
-            let camera_move = camera_look_at * self.mouse_wheel_delta * self.config.pan_speed;
-            camera.config.position += camera_move;
+        }
+        if self.mouse_wheel_delta != 0. {
+            // 计算缩放速度
+            let zoom_speed = 0.1 * self.config.zoom_speed;
+
+            // 累加缩放速度
+            self.zoom_velocity += -self.mouse_wheel_delta * zoom_speed;
+
+            // 重置滚轮增量
             self.mouse_wheel_delta = 0.;
+        }
+
+        // 应用缩放 - 直接修改相机宽度/高度而不是移动相机
+        let zoom_velocity_epsilon = 1e-6;
+        if self.zoom_velocity.abs() > zoom_velocity_epsilon {
+            // 计算缩放因子
+            let zoom_factor = (1.0 - self.zoom_velocity).max(0.9).min(1.1);
+            let mut current_zoom = camera.config.zoom * zoom_factor;
+
+            // 限制缩放范围
+            current_zoom = current_zoom.clamp(self.config.min_zoom, self.config.max_zoom);
+
+            camera.config.zoom = current_zoom;
+
+            self.zoom_velocity *= self.zoom_friction;
+
+            if self.zoom_velocity.abs() < zoom_velocity_epsilon {
+                self.zoom_velocity = 0.0;
+            }
         }
     }
 
@@ -168,8 +213,8 @@ impl MapController {
                 * (camera.config.fov.to_radians() / 2.0).tan()
                 * camera.config.position.distance(camera.config.target);
             let view_width = view_height * self.config.width / self.config.height;
-            let pan_speed_x = view_width / self.config.width;
-            let pan_speed_y = view_height / self.config.height;
+            let pan_speed_x = view_width / self.config.width / self.config.scale_factor;
+            let pan_speed_y = view_height / self.config.height / self.config.scale_factor;
 
             // 计算相机移动向量
             let camera_move = (camera_right * dis.x * pan_speed_x
@@ -194,11 +239,39 @@ impl MapController {
             camera.config.position =
                 radius_vec.normalize() * radius + camera.config.target + camera_up;
             self.before_pos = self.mouse_now_pos;
-        } else if self.mouse_wheel_delta != 0. {
-            let camera_look_at = (camera.config.target - camera.config.position).normalize();
-            let camera_move = camera_look_at * self.mouse_wheel_delta * self.config.pan_speed;
-            camera.config.position += camera_move;
+        }
+        if self.mouse_wheel_delta != 0. {
+            // 获取当前距离
+            let current_distance = camera.config.position.distance(camera.config.target);
+            self.target_distance = current_distance;
+
+            // 根据距离调整缩放速度
+            let zoom_speed = current_distance * self.config.zoom_speed;
+
+            // 累加缩放速度
+            self.zoom_velocity += -self.mouse_wheel_delta * zoom_speed;
+
+            // 重置滚轮增量
             self.mouse_wheel_delta = 0.;
+        }
+
+        // 应用缩放
+        let zoom_velocity_epsilon = 1e-6;
+        if self.zoom_velocity.abs() > zoom_velocity_epsilon {
+            let current_distance = camera.config.position.distance(camera.config.target);
+
+            let zoom_factor: f32 = (1.0 - self.zoom_velocity).max(0.9).min(1.1);
+            let new_distance =
+                (current_distance * zoom_factor).clamp(self.min_distance, self.max_distance);
+
+            let direction = (camera.config.position - camera.config.target).normalize();
+            camera.config.position = camera.config.target + direction * new_distance;
+
+            self.zoom_velocity *= self.zoom_friction;
+
+            if self.zoom_velocity.abs() < zoom_velocity_epsilon {
+                self.zoom_velocity = 0.0;
+            }
         }
     }
 }

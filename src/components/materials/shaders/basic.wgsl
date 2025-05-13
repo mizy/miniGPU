@@ -11,7 +11,7 @@ struct VertexInput {
     @builtin(vertex_index) vertex_index: u32,
     @location(0) position: vec3<f32>,
     #ifdef HAS_TEXTURE
-    @location(1) tex_coord: vec2<f32>,
+    @location(2) tex_coord: vec2<f32>,
     #endif
 };
 
@@ -51,8 +51,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
 #ifdef HAS_TEXTURE
-      return textureSample(t_diffuse, s_diffuse, in.tex_coord);
+    // 纹理采样
+    return textureSample(t_diffuse, s_diffuse, in.tex_coord);
 #else
-      return vec4f(color);
+    return vec4f(color);
 #endif
 }

@@ -5,15 +5,15 @@ use ::mini_gpu::{
         perspective_camera::PerspectiveCamera,
     },
     entity::Entity,
+    geometry::plane::{make_plane_mesh, MakePlaneConfig},
     mini_gpu::{self, MiniGPU},
     system::mesh_render::MeshRender,
     utils::texture::Texture,
 };
-use bytemuck::{Pod, Zeroable};
 use winit::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
     window::Window,
 };
 fn main() {
@@ -76,13 +76,6 @@ async fn run() {
         .unwrap();
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coord: [f32; 2],
-}
-
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     let bytes = include_bytes!("./case.jpg");
     let image = image::load_from_memory(bytes).unwrap();
@@ -104,7 +97,14 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     println!("width: {}", image.width());
     println!("height: {}", image.height());
     let scale = image.width() as f32 / image.height() as f32;
-    let mesh = material.make_image_mesh(scale * 1., 1., vec![0.0, 0.0, 0.0], &mini_gpu.renderer);
+    let mesh = make_plane_mesh(
+        MakePlaneConfig {
+            width: 1. * scale,
+            height: 1.,
+            ..Default::default()
+        },
+        &mini_gpu.renderer,
+    );
 
     let camera = mini_gpu.scene.get_default_camera().unwrap();
     let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();

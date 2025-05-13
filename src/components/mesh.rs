@@ -25,6 +25,12 @@ pub struct VertexPositionNormalTexture {
     pub normal: [f32; 3],
     pub tex_coords: [f32; 2],
 }
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct VertexPositionTexture {
+    pub position: [f32; 3],
+    pub tex_coords: [f32; 2],
+}
 
 pub struct Mesh {
     pub vertex_buffer: wgpu::Buffer,

@@ -17,6 +17,7 @@ pub struct OrthographicCameraConfig {
     pub position: Vec3,
     pub target: Vec3,
     pub up: Vec3,
+    pub zoom: f32,
 }
 impl Default for OrthographicCameraConfig {
     fn default() -> Self {
@@ -28,6 +29,7 @@ impl Default for OrthographicCameraConfig {
             position: Vec3::new(0.0, 0.0, 10.0),
             target: Vec3::new(0.0, 0.0, 0.0),
             up: Vec3::new(0.0, 1.0, 0.0),
+            zoom: 1.0,
         }
     }
 }
@@ -64,17 +66,24 @@ impl OrthographicCamera {
         });
         camera_buffer
     }
+
+    pub fn set_zoom(&mut self, zoom: f32) {
+        self.config.zoom = zoom;
+    }
 }
 
 impl CameraTrait for OrthographicCamera {
     fn update_bind_group(&mut self, renderer: &Renderer) {
+        let zoom = self.config.zoom;
+        let width = self.config.width * zoom;
+        let height = width / self.config.aspect;
         let uniform = CameraUniform::new(
             Mat4::look_at_rh(self.config.position, self.config.target, self.config.up),
             Mat4::orthographic_rh(
-                -self.config.width / 2.0,
-                self.config.width / 2.0,
-                -self.config.width / 2.0 / self.config.aspect,
-                self.config.width / 2.0 / self.config.aspect,
+                -width / 2.0,
+                width / 2.0,
+                -height / 2.0,
+                height / 2.0,
                 self.config.near,
                 self.config.far,
             ),

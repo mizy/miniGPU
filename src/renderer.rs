@@ -67,9 +67,10 @@ impl Renderer {
         surface.configure(&device, &surface_config);
         let depth_texture =
             depth_texture::DepthTexture::new(&device, &surface_config, "depth_texture");
+        let scale_factor = window.scale_factor();
         Renderer {
             window,
-            viewport: Viewport::new(config.width, config.height),
+            viewport: Viewport::new(config.width, config.height, scale_factor as f32),
             config,
             surface_config,
             swapchain_format,

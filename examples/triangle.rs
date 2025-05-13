@@ -4,6 +4,7 @@ use ::mini_gpu::{
         mesh::Mesh,
     },
     entity::Entity,
+    geometry::plane::{make_plane_mesh, MakePlaneConfig},
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
 };
@@ -75,6 +76,12 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         vec![0, 1, 2],
         &mini_gpu.renderer,
     );
+    // let mesh = make_plane_mesh(
+    //     MakePlaneConfig {
+    //         ..Default::default()
+    //     },
+    //     &mini_gpu.renderer,
+    // );
     let material_line = Material::new(
         MaterialConfig {
             shader: include_str!("./triangle.wgsl").to_string(),
