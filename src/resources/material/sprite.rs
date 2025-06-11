@@ -1,15 +1,14 @@
 use wgpu::{util::DeviceExt, BlendState, ColorTargetState, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{
-    components::material::MaterialTrait,
     renderer::Renderer,
+    resources::material::MaterialTrait,
+    resources::shaders::shader::ShaderParser,
     utils::{
         depth_texture,
         texture::{self, Texture},
     },
 };
-
-use super::shader::ShaderParser;
 
 pub struct SpriteMaterial {
     pipeline: Option<wgpu::RenderPipeline>,
@@ -60,14 +59,11 @@ impl MaterialTrait for SpriteMaterial {
         &self.bind_group
     }
     fn get_render_pipeline(
-        &mut self,
+        &self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&wgpu::BindGroupLayout>,
         env_vertex_buffer_layout: Vec<wgpu::VertexBufferLayout>,
-    ) -> &wgpu::RenderPipeline {
-        if self.pipeline.is_some() {
-            return self.pipeline.as_ref().unwrap();
-        }
+    ) -> wgpu::RenderPipeline {
         let device = &renderer.device;
         let mut layouts = vec![&self.bind_group_layout];
         for layout in env_pipeline_layout {
@@ -107,8 +103,7 @@ impl MaterialTrait for SpriteMaterial {
             multiview: None,
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
         });
-        self.pipeline = Some(pipeline);
-        self.pipeline.as_ref().unwrap()
+        pipeline
     }
 }
 
@@ -126,7 +121,7 @@ impl SpriteMaterial {
                         .insert("SIZE_ATTENUATION".to_string(), "true".to_string());
                 }
                 shader_parser
-                    .parse_shader(include_str!("./shaders/sprite.wgsl"))
+                    .parse_shader(include_str!("../shaders/sprite.wgsl"))
                     .to_string()
             }
         };

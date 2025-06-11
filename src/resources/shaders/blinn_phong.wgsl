@@ -19,7 +19,6 @@ struct BlinnUniform {
 
 @group(0) @binding(0) var<uniform> color: vec4f;
 @group(1) @binding(1) var<uniform> direction_light: DirectionLight;
-@group(1) @binding(0) var<uniform> camera: CameraUniform;
 @vertex
 fn vs_main(vertex:VertexInput) -> VertexOutput  {
   var out: VertexOutput;

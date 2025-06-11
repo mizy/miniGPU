@@ -1,5 +1,5 @@
 use ::mini_gpu::{
-    components::{controller::map::MapController, perspective_camera::PerspectiveCamera},
+    components::{controller::orbit::OrbitController, perspective_camera::PerspectiveCamera},
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
     utils::{self},
@@ -30,7 +30,7 @@ async fn run() {
     )
     .await;
     make_test_mesh(&mut mini_gpu).await;
-    let mut camera_controller = MapController::default();
+    let mut camera_controller = OrbitController::default();
     camera_controller.config.width = mini_gpu.renderer.viewport.width;
     camera_controller.config.height = mini_gpu.renderer.viewport.height;
 
@@ -40,7 +40,7 @@ async fn run() {
     event_loop
         .run(move |event, target| {
             let window = &mini_gpu.renderer.window;
-            let camera = mini_gpu.scene.get_default_camera().unwrap();
+            let camera = mini_gpu.world.get_default_camera().unwrap();
             match event {
                 Event::WindowEvent {
                     ref event,
@@ -51,7 +51,7 @@ async fn run() {
                         WindowEvent::RedrawRequested => {
                             camera_controller.update(camera);
                             camera.update_bind_group(&mini_gpu.renderer);
-                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.world) {
                                 println!("Failed to render: {}", e);
                             }
                         }
@@ -90,7 +90,7 @@ async fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         }
     }
 
-    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let camera = mini_gpu.world.get_default_camera().unwrap();
     let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
     perspective_camera.config.position.z = 10.0;
     camera.update_bind_group(&mini_gpu.renderer);

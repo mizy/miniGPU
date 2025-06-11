@@ -1,57 +1,50 @@
-use wgpu::util::DeviceExt;
+use super::light::LightData;
 
-use crate::renderer::Renderer;
-
-use super::light::LightTrait;
-
+/// 环境光组件 - 纯数据结构
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AmbientLight {
-    pub uniform: AmbientLightUniform,
-    pub buffer: wgpu::Buffer,
-    pub bind_index: u32,
+    /// 基础光照数据
+    pub light_data: LightData,
 }
 
+/// GPU 使用的环境光数据结构
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct AmbientLightUniform {
-    pub color: [f32; 3],
-    pub intensity: f32,
+    /// 环境光颜色 (rgb) + 强度
+    pub color_intensity: [f32; 4],
+    /// 启用标志 + padding
+    pub flags: [u32; 4],
+}
+impl AmbientLightUniform {
+    pub fn default() -> Self {
+        Self {
+            color_intensity: [0.1, 0.1, 0.15, 0.4], // 默认环境光颜色和强度
+            flags: [1, 0, 0, 0],                    // 启用标志
+        }
+    }
 }
 
 impl AmbientLight {
-    pub fn new(renderer: &Renderer, index: u32, uniform: AmbientLightUniform) -> Self {
-        let device = &renderer.device;
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Ambient Light Buffer"),
-            contents: bytemuck::cast_slice(&[uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+    /// 创建新的环境光组件
+    pub fn new(color: [f32; 3], intensity: f32, bind_index: u32) -> Self {
         Self {
-            uniform,
-            buffer,
-            bind_index: index,
+            light_data: LightData::new(color, intensity, bind_index),
         }
     }
 
-    pub fn update_buffer(&mut self, renderer: &Renderer) {
-        renderer
-            .queue
-            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]))
+    /// 创建默认的环境光
+    pub fn default_ambient(bind_index: u32) -> Self {
+        Self::new(
+            [0.1, 0.1, 0.15], // 略带蓝色的环境光
+            0.4,
+            bind_index,
+        )
     }
 }
 
-impl LightTrait for AmbientLight {
-    fn get_bind_index(&self) -> u32 {
-        self.bind_index
-    }
-
-    fn get_buffer(&self) -> &wgpu::Buffer {
-        &self.buffer
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
+impl Default for AmbientLight {
+    fn default() -> Self {
+        Self::default_ambient(0)
     }
 }

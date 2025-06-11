@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use ::mini_gpu::{
     components::{
-        controller::map::MapController,
+        controller::orbit::OrbitController,
         lights::directional_light::{DirectionalLight, DirectionalLightUniform},
         mesh::Mesh,
     },
@@ -46,7 +46,7 @@ async fn run() {
     make_test_mesh(&mut mini_gpu);
 
     // add light
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
     let light = DirectionalLight::new(
         &mini_gpu.renderer,
         2,
@@ -56,13 +56,13 @@ async fn run() {
             color: [1., 1., 0.8, 1.0],
         },
     );
-    let light_index = mini_gpu.scene.set_entity_component::<Box<dyn LightTrait>>(
+    let light_index = mini_gpu.world.set_entity_component::<Box<dyn LightTrait>>(
         entity_id,
         Box::new(light),
         "light",
     );
 
-    let mut camera_controller = MapController::default();
+    let mut camera_controller = OrbitController::default();
 
     mini_gpu
         .renderer
@@ -76,16 +76,16 @@ async fn run() {
                 camera_controller.process_events(event);
                 match event {
                     WindowEvent::RedrawRequested => {
-                        let camera = mini_gpu.scene.get_default_camera().unwrap();
+                        let camera = mini_gpu.world.get_default_camera().unwrap();
                         update_light(&mini_gpu, light_index);
                         camera_controller.update(camera);
                         camera.update_bind_group(&mini_gpu.renderer);
-                        if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                        if let Err(e) = mini_gpu.renderer.render(&mini_gpu.world) {
                             println!("Failed to render: {}", e);
                         }
                     }
                     WindowEvent::Resized(physical_size) => {
-                        let camera = mini_gpu.scene.get_default_camera().unwrap();
+                        let camera = mini_gpu.world.get_default_camera().unwrap();
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);
@@ -111,7 +111,7 @@ async fn run() {
 fn update_light(mini_gpu: &MiniGPU, light_index: usize) {
     // update light position
     let light_trait = mini_gpu
-        .scene
+        .world
         .get_component::<Box<dyn LightTrait>>(light_index);
     let now_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -152,11 +152,11 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mini_gpu.renderer,
     ));
     //object1
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
     mini_gpu
-        .scene
+        .world
         .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
     mini_gpu
-        .scene
+        .world
         .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, material, "material");
 }

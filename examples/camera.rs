@@ -1,5 +1,5 @@
 use ::mini_gpu::{
-    components::controller::map::MapController, system::mesh_render::MeshRender, utils::axis,
+    components::controller::orbit::OrbitController, system::mesh_render::MeshRender, utils::axis,
 };
 use mini_gpu::mini_gpu;
 use winit::{
@@ -27,7 +27,7 @@ async fn run() {
     )
     .await;
     axis::add_xyz_line(&mut mini_gpu, None);
-    let mut camera_controller = MapController::default();
+    let mut camera_controller = OrbitController::default();
     mini_gpu
         .renderer
         .add_system("render".to_string(), Box::new(MeshRender {}));
@@ -40,15 +40,15 @@ async fn run() {
                 camera_controller.process_events(event);
                 match event {
                     WindowEvent::RedrawRequested => {
-                        let camera = mini_gpu.scene.get_default_camera().unwrap();
+                        let camera = mini_gpu.world.get_default_camera().unwrap();
                         camera_controller.update(camera);
                         camera.update_bind_group(&mini_gpu.renderer);
-                        if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                        if let Err(e) = mini_gpu.renderer.render(&mini_gpu.world) {
                             println!("Failed to render: {}", e);
                         }
                     }
                     WindowEvent::Resized(physical_size) => {
-                        let camera = mini_gpu.scene.get_default_camera().unwrap();
+                        let camera = mini_gpu.world.get_default_camera().unwrap();
                         mini_gpu
                             .renderer
                             .resize(physical_size.width, physical_size.height);

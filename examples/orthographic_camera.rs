@@ -1,5 +1,5 @@
 use ::mini_gpu::{
-    components::{controller::map::MapController, orthographic_camera::OrthographicCamera},
+    components::{controller::orbit::OrbitController, orthographic_camera::OrthographicCamera},
     mini_gpu::{self, MiniGPU},
     system::mesh_render::MeshRender,
     utils::{self, axis, texture::Texture},
@@ -31,7 +31,7 @@ async fn run() {
     utils::camera::default_orthographic_camera(&mut mini_gpu);
     make_test_mesh(&mut mini_gpu).await;
     axis::add_xyz_line(&mut mini_gpu, Some(10.));
-    let mut camera_controller = MapController::default();
+    let mut camera_controller = OrbitController::default();
     camera_controller.config.width = mini_gpu.renderer.viewport.width;
     camera_controller.config.height = mini_gpu.renderer.viewport.height;
 
@@ -41,7 +41,7 @@ async fn run() {
     event_loop
         .run(move |event, target| {
             let window = &mini_gpu.renderer.window;
-            let camera = mini_gpu.scene.get_default_camera().unwrap();
+            let camera = mini_gpu.world.get_default_camera().unwrap();
             match event {
                 Event::WindowEvent {
                     ref event,
@@ -52,7 +52,7 @@ async fn run() {
                         WindowEvent::RedrawRequested => {
                             camera_controller.update(camera);
                             camera.update_bind_group(&mini_gpu.renderer);
-                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.world) {
                                 println!("Failed to render: {}", e);
                             }
                         }
@@ -94,7 +94,7 @@ async fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         }
     }
 
-    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let camera = mini_gpu.world.get_default_camera().unwrap();
     let orthographic_camera = camera
         .as_any()
         .downcast_mut::<OrthographicCamera>()

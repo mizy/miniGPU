@@ -7,10 +7,10 @@ use crate::{
         mesh::Mesh,
     },
     renderer::Renderer,
-    scene::Scene,
+    world::World,
 };
 
-pub fn make_mesh(position: Vec3, renderer: &Renderer, scene: &mut Scene, entity_id: usize) {
+pub fn make_mesh(position: Vec3, renderer: &Renderer, world: &mut World, entity_id: usize) {
     let mesh = Mesh::new_position_only(
         vec![
             position.x, position.y, position.z, position.x, position.y, position.z, position.x,
@@ -19,15 +19,15 @@ pub fn make_mesh(position: Vec3, renderer: &Renderer, scene: &mut Scene, entity_
         vec![0, 1, 2, 2, 1, 3],
         renderer,
     );
-    scene.set_entity_component(entity_id, mesh, "mesh");
+    world.set_entity_component(entity_id, mesh, "mesh");
 }
 
 pub fn make_material(
     renderer: &Renderer,
-    scene: &mut Scene,
+    world: &mut World,
     material: SpriteMaterialConfig,
     entity_id: usize,
 ) {
     let material = SpriteMaterial::new(material, renderer);
-    scene.set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
+    world.set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
 }

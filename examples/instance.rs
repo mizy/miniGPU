@@ -2,8 +2,8 @@ use std::f32::consts::PI;
 
 use ::mini_gpu::{
     components::{
-        controller::map::MapController,
-        instance::{self, Instance},
+        controller::orbit::OrbitController,
+        instance_bak::{self, Instance},
         material::MaterialTrait,
         materials::basic::{BasicMaterial, BasicMaterialConfig},
         perspective_camera::PerspectiveCamera,
@@ -39,17 +39,13 @@ async fn run() {
     )
     .await;
     make_test_mesh(&mut mini_gpu);
-    let mut camera_controller = MapController::default();
+    let mut camera_controller = OrbitController::default();
     camera_controller.config.scale_factor = mini_gpu.renderer.viewport.scale_factor;
-
-    mini_gpu
-        .renderer
-        .add_system("render".to_string(), Box::new(MeshRender {}));
 
     event_loop
         .run(move |event, target| {
             let window = &mini_gpu.renderer.window;
-            let camera = mini_gpu.scene.get_default_camera().unwrap();
+            let camera = mini_gpu.world.get_default_camera().unwrap();
 
             match event {
                 Event::WindowEvent {
@@ -61,7 +57,7 @@ async fn run() {
                         WindowEvent::RedrawRequested => {
                             camera_controller.update(camera);
                             camera.update_bind_group(&mini_gpu.renderer);
-                            if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
+                            if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.world) {
                                 println!("Failed to render: {}", e);
                             }
                         }
@@ -118,15 +114,15 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mini_gpu.renderer,
     );
 
-    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let camera = mini_gpu.world.get_default_camera().unwrap();
     let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
     perspective_camera.config.position = glam::Vec3::new(0., 0., 2.);
     camera.update_bind_group(&mini_gpu.renderer);
 
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
+    mini_gpu.world.set_entity_component(entity_id, mesh, "mesh");
     mini_gpu
-        .scene
+        .world
         .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
     let size_result = mini_gpu
         .renderer
@@ -146,13 +142,13 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
                 glam::Quat::from_euler(glam::EulerRot::XYZ, i as f32 / 10. * PI, 0., 0.),
                 glam::vec3(i as f32, j as f32, 0.0),
             );
-            instance_data.push(instance::InstanceData {
+            instance_data.push(instance_bak::InstanceData {
                 data: matdata.to_cols_array_2d(),
             });
         }
     }
     let instance = Instance::new(instance_data, &mini_gpu.renderer);
     mini_gpu
-        .scene
+        .world
         .set_entity_component(entity_id, instance, "instance");
 }

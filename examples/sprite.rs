@@ -1,5 +1,5 @@
 use ::mini_gpu::{
-    components::controller::map::MapController,
+    components::controller::orbit::OrbitController,
     entity::{sprite_entity, Entity},
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
@@ -20,7 +20,9 @@ fn main() {
 async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new().unwrap();
-    let window = winit::window::WindowBuilder::new().build(&event_loop).unwrap();
+    let window = winit::window::WindowBuilder::new()
+        .build(&event_loop)
+        .unwrap();
     let size = window.inner_size();
     let mut mini_gpu = MiniGPU::new(
         MiniGPUConfig {
@@ -31,7 +33,7 @@ async fn run() {
     )
     .await;
     make_test_mesh(&mut mini_gpu);
-    let mut camera_controller = MapController::default();
+    let mut camera_controller = OrbitController::default();
 
     mini_gpu
         .renderer
@@ -39,7 +41,7 @@ async fn run() {
     event_loop
         .run(move |event, target| {
             let window = &mini_gpu.renderer.window;
-            let camera = mini_gpu.scene.get_default_camera().unwrap();
+            let camera = mini_gpu.world.get_default_camera().unwrap();
 
             match event {
                 Event::WindowEvent {
@@ -51,7 +53,7 @@ async fn run() {
                         WindowEvent::RedrawRequested => {
                             camera_controller.update(camera);
                             camera.update_bind_group(&mini_gpu.renderer);
-                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.world) {
                                 println!("Failed to render: {}", e);
                             }
                         }
@@ -79,11 +81,11 @@ async fn run() {
 }
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
     sprite_entity::make_mesh(
         glam::Vec3::new(0.0, 0.0, 0.0),
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         entity_id,
     );
     let texture = texture::Texture::from_bytes(
@@ -95,7 +97,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     .unwrap();
     sprite_entity::make_material(
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         SpriteMaterialConfig {
             width: texture.size.width as f32 / mini_gpu.config.width as f32,
             height: texture.size.height as f32 / mini_gpu.config.width as f32,

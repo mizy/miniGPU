@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ::mini_gpu::{mini_gpu::MiniGPU, system::mesh_render::MeshRender, *};
 use components::{
-    controller::map::MapController, materials::sprite::SpriteMaterialConfig,
+    controller::orbit::OrbitController, materials::sprite::SpriteMaterialConfig,
     perspective_camera::PerspectiveCamera,
 };
 use entity::{sprite_entity, Entity};
@@ -18,7 +18,7 @@ use winit::{
 #[wasm_bindgen]
 pub struct MiniGPUWeb {
     mini_gpu_instance: MiniGPU,
-    camera_controller: MapController,
+    camera_controller: OrbitController,
     now_window_id: winit::window::WindowId,
     event_loop: Option<EventLoop<()>>,
     assets_buffer_map: HashMap<String, Vec<u8>>,
@@ -34,7 +34,7 @@ impl MiniGPUWeb {
         console_log::init_with_level(log::Level::Info).expect("Couldn't initialize logger");
         log::info!("init wasm example");
         let (event_loop, mut mini_gpu_instance, now_window_id) = MiniGPUWeb::init_instance().await;
-        let camera_controller = MapController::default();
+        let camera_controller = OrbitController::default();
         make_test_mesh(&mut mini_gpu_instance);
         make_obj_mesh(&mut mini_gpu_instance).await;
         MiniGPUWeb {
@@ -109,17 +109,17 @@ impl MiniGPUWeb {
                     camera_controller.process_events(event);
                     match event {
                         WindowEvent::RedrawRequested => {
-                            let camera = mini_gpu_instance.scene.get_default_camera().unwrap();
+                            let camera = mini_gpu_instance.world.get_default_camera().unwrap();
                             camera_controller.update(camera);
                             camera.update_bind_group(&mini_gpu_instance.renderer);
                             if let Err(e) =
-                                mini_gpu_instance.renderer.render(&mini_gpu_instance.scene)
+                                mini_gpu_instance.renderer.render(&mini_gpu_instance.world)
                             {
                                 println!("Failed to render: {}", e);
                             }
                         }
                         // WindowEvent::Resized(physical_size) => {
-                        //     let camera = mini_gpu.scene.get_default_camera().unwrap();
+                        //     let camera = mini_gpu.world.get_default_camera().unwrap();
                         //     mini_gpu
                         //         .renderer
                         //         .resize(physical_size.width, physical_size.height);
@@ -154,11 +154,11 @@ fn create_solid_color_image(width: u32, height: u32, color: [u8; 4]) -> image::D
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     // add point
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
     sprite_entity::make_mesh(
         glam::Vec3::new(0.0, 0.0, 0.0),
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         entity_id,
     );
     let bytes = include_bytes!("../../case.jpg");
@@ -172,7 +172,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     .unwrap();
     sprite_entity::make_material(
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         SpriteMaterialConfig {
             width: 200.0 / mini_gpu.config.width as f32,
             height: 200.0 / mini_gpu.config.width as f32,
@@ -183,27 +183,27 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         entity_id,
     );
     let material_id = &mini_gpu
-        .scene
+        .world
         .get_entity_component_index(entity_id, "material");
 
     let count = 1000;
     let range = 10.;
     for i in 0..count {
-        let entity_id = mini_gpu.scene.add_entity(Entity::new());
+        let entity_id = mini_gpu.world.add_entity(Entity::new());
         let position = glam::Vec3::new(
             ((i as f32 / count as f32) - 0.5) * range,
             ((i as f32 / count as f32) - 0.5) * range,
             (random() as f32) * range,
         );
 
-        sprite_entity::make_mesh(position, &mini_gpu.renderer, &mut mini_gpu.scene, entity_id);
+        sprite_entity::make_mesh(position, &mini_gpu.renderer, &mut mini_gpu.world, entity_id);
 
         mini_gpu
-            .scene
+            .world
             .set_entity_component_index(entity_id, *material_id, "material");
     }
     //add line
-    // let entity_line_id = mini_gpu.scene.add_entity(Entity::new());
+    // let entity_line_id = mini_gpu.world.add_entity(Entity::new());
     // entity::mesh_line::make_mesh(
     //     &vec![
     //         glam::Vec3::new(0.2, 0.0, 0.0),
@@ -211,12 +211,12 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     //     ],
     //     30.0 as f32 / mini_gpu.config.width as f32,
     //     &mini_gpu.renderer,
-    //     &mut mini_gpu.scene,
+    //     &mut mini_gpu.world,
     //     entity_line_id,
     // );
     // entity::mesh_line::make_material(
     //     &mini_gpu.renderer,
-    //     &mut mini_gpu.scene,
+    //     &mut mini_gpu.world,
     //     vec![0.0, 1.0, 1.0, 1.0],
     //     entity_line_id,
     // );
@@ -234,7 +234,7 @@ async fn make_obj_mesh(mini_gpu: &mut MiniGPU) {
     //     }
     // }
 
-    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let camera = mini_gpu.world.get_default_camera().unwrap();
     let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
     perspective_camera.config.position.z = 10.0;
     camera.update_bind_group(&mini_gpu.renderer);

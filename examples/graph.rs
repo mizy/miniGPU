@@ -1,5 +1,5 @@
 use ::mini_gpu::{
-    components::controller::map::MapController,
+    components::controller::orbit::OrbitController,
     entity::{sprite_entity, Entity},
     mini_gpu::MiniGPU,
     system::mesh_render::MeshRender,
@@ -33,7 +33,7 @@ async fn run() {
     .await;
     make_test_mesh(&mut mini_gpu);
     mini_gpu::utils::camera::default_orthographic_camera(&mut mini_gpu);
-    let mut camera_controller = MapController::default();
+    let mut camera_controller = OrbitController::default();
     camera_controller.config.pan_speed = 0.007;
     mini_gpu
         .renderer
@@ -41,7 +41,7 @@ async fn run() {
     event_loop
         .run(move |event, target| {
             let window = &mini_gpu.renderer.window;
-            let camera = mini_gpu.scene.get_default_camera().unwrap();
+            let camera = mini_gpu.world.get_default_camera().unwrap();
             match event {
                 Event::WindowEvent {
                     ref event,
@@ -52,7 +52,7 @@ async fn run() {
                         WindowEvent::RedrawRequested => {
                             camera_controller.update(camera);
                             camera.update_bind_group(&mini_gpu.renderer);
-                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.world) {
                                 println!("Failed to render: {}", e);
                             }
                         }
@@ -87,11 +87,11 @@ fn create_solid_color_image(width: u32, height: u32, color: [u8; 4]) -> image::D
 
 fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     // add point
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
     sprite_entity::make_mesh(
         glam::Vec3::new(0.0, 0.0, 0.0),
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         entity_id,
     );
     let img = create_solid_color_image(256, 256, [255, 0, 0, 255]);
@@ -104,7 +104,7 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
     .unwrap();
     sprite_entity::make_material(
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         SpriteMaterialConfig {
             width: texture.size.width as f32 / mini_gpu.config.width as f32,
             height: texture.size.height as f32 / mini_gpu.config.width as f32,
@@ -115,21 +115,21 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         entity_id,
     );
     let material_id = &mini_gpu
-        .scene
+        .world
         .get_entity_component_index(entity_id, "material");
 
-    let entity_id2 = mini_gpu.scene.add_entity(Entity::new());
+    let entity_id2 = mini_gpu.world.add_entity(Entity::new());
     sprite_entity::make_mesh(
         glam::Vec3::new(1.0, 0.0, 0.0),
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         entity_id2,
     );
     mini_gpu
-        .scene
+        .world
         .set_entity_component_index(entity_id2, *material_id, "material");
     //add line
-    let entity_line_id = mini_gpu.scene.add_entity(Entity::new());
+    let entity_line_id = mini_gpu.world.add_entity(Entity::new());
     mini_gpu::entity::mesh_line::make_mesh(
         &vec![
             glam::Vec3::new(0.1, 0.0, 0.0),
@@ -137,12 +137,12 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         ],
         60.0 as f32 / mini_gpu.config.width as f32,
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         entity_line_id,
     );
     mini_gpu::entity::mesh_line::make_material(
         &mini_gpu.renderer,
-        &mut mini_gpu.scene,
+        &mut mini_gpu.world,
         vec![1.0, 1.0, 1.0, 1.0],
         entity_line_id,
     );

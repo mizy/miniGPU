@@ -25,7 +25,7 @@ pub async fn load_gltf(glb_model: &[u8], mini_gpu: &mut MiniGPU) -> anyhow::Resu
     let materials = gltf.materials();
     let materials_map = make_material_map(materials, images, &mini_gpu.renderer)?;
 
-    let parent_id = &mini_gpu.scene.add_default_entity();
+    let parent_id = &mini_gpu.world.add_default_entity();
     append_mesh_children(*parent_id, mini_gpu, &gltf, &buffers, materials_map);
     Ok(*parent_id)
 }
@@ -101,12 +101,12 @@ pub fn append_mesh_children(
 ) -> usize {
     let material_ids: Vec<usize> = materials
         .into_iter()
-        .map(|m| mini_gpu.scene.add_component::<Box<dyn MaterialTrait>>(m))
+        .map(|m| mini_gpu.world.add_component::<Box<dyn MaterialTrait>>(m))
         .collect();
     let meshs = model.meshes();
     meshs.into_iter().for_each(|mesh| {
         let mesh_group = build_group_mesh(&mesh, mini_gpu, &buffers, &material_ids);
-        mini_gpu.scene.add_entity_child(parent, mesh_group); //添加到父节点
+        mini_gpu.world.add_entity_child(parent, mesh_group); //添加到父节点
     });
     parent
 }
@@ -130,13 +130,13 @@ pub fn build_group_mesh(
             continue;
         }
 
-        let child_id = mini_gpu.scene.add_entity(child);
+        let child_id = mini_gpu.world.add_entity(child);
 
         mini_gpu
-            .scene
+            .world
             .set_entity_component(child_id, mesh_instance, "mesh");
         mini_gpu
-            .scene
+            .world
             .set_entity_component_index(child_id, *material_index.unwrap(), "material");
 
         group.add_child(child_id);

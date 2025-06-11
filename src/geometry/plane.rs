@@ -1,6 +1,6 @@
 use crate::{
-    components::mesh::{Mesh, VertexFormat, VertexPositionNormalTexture, VertexPositionTexture},
     renderer::Renderer,
+    resources::mesh::{Mesh, VertexFormat, VertexPositionTexture},
 };
 
 pub struct MakePlaneConfig {

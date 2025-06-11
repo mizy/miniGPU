@@ -46,7 +46,7 @@ async fn run() {
                 Event::WindowEvent { window_id, event } if window_id == window.id() => {
                     match event {
                         WindowEvent::RedrawRequested => {
-                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.scene) {
+                            if let Err(e) = mini_gpu.renderer.render(&mini_gpu.world) {
                                 println!("Failed to render: {}", e);
                             }
                         }
@@ -91,12 +91,12 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mini_gpu.renderer,
     );
     //object1
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
     mini_gpu
-        .scene
+        .world
         .set_entity_component::<Mesh>(entity_id, mesh, "mesh");
     let material_index = mini_gpu
-        .scene
+        .world
         .set_entity_component::<Box<dyn MaterialTrait>>(
             entity_id,
             Box::new(material_line),
@@ -109,11 +109,11 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         vec![0, 1, 2],
         &mini_gpu.renderer,
     );
-    let entity_3 = mini_gpu.scene.add_entity(Entity::new());
+    let entity_3 = mini_gpu.world.add_entity(Entity::new());
     mini_gpu
-        .scene
+        .world
         .set_entity_component::<Mesh>(entity_3, mesh_2, "mesh");
     mini_gpu
-        .scene
+        .world
         .set_entity_component_index(entity_3, material_index, "material");
 }

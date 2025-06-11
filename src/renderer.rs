@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use winit::window::Window;
 
 use crate::{
-    components::viewport::Viewport, scene::Scene, system::system::System, utils::depth_texture,
+    components::viewport::Viewport, system::system::System, utils::depth_texture, world::World,
 };
 
 pub struct Renderer {
@@ -93,22 +93,8 @@ impl Renderer {
             depth_texture::DepthTexture::new(&self.device, &self.surface_config, "depth_texture");
     }
 
-    pub fn render(&self, scene: &Scene) -> Result<(), wgpu::SurfaceError> {
-        let map = &self.systems_map;
-        for (_, system) in map {
-            {
-                system.update(self, scene);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn add_system(&mut self, name: String, system: Box<dyn System>) -> Option<Box<dyn System>> {
-        self.systems_map.insert(name, system)
-    }
-
-    pub fn remove_system(&mut self, name: &str) {
-        let system = self.systems_map.remove(name).unwrap();
-        drop(system);
+    pub fn cleanup(&mut self) {
+        // Cleanup resources if needed
+        self.systems_map.clear();
     }
 }

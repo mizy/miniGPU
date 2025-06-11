@@ -5,8 +5,9 @@ use glam::Vec3;
 use wgpu::{util::DeviceExt, BindGroupEntry, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{
-    components::{material::MaterialTrait, materials::shader::ShaderParser},
     renderer::Renderer,
+    resources::material::MaterialTrait,
+    resources::shaders::shader::ShaderParser,
     utils::{depth_texture, texture::Texture},
 };
 
@@ -125,14 +126,11 @@ impl MaterialTrait for BlinnPhongMaterial {
         &self.bind_group
     }
     fn get_render_pipeline(
-        &mut self,
+        &self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&wgpu::BindGroupLayout>,
         env_vertex_buffer_layout: Vec<wgpu::VertexBufferLayout>,
-    ) -> &wgpu::RenderPipeline {
-        if self.pipeline.is_some() {
-            return self.pipeline.as_ref().unwrap();
-        }
+    ) -> wgpu::RenderPipeline {
         let device = &renderer.device;
         let mut layouts = vec![&self.bind_group_layout];
         for layout in env_pipeline_layout {
@@ -164,8 +162,7 @@ impl MaterialTrait for BlinnPhongMaterial {
             multiview: None,
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
         });
-        self.pipeline = Some(pipeline);
-        self.pipeline.as_ref().unwrap()
+        pipeline
     }
 }
 
@@ -185,7 +182,6 @@ impl BlinnPhongMaterial {
         let shader_text = Self::generate_shader_text(&VertexFormatKey {
             has_texture: config.use_texture,
         });
-        println!("shader_text for blinn: {}", shader_text);
 
         let shader_module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some("Shader Module"),
@@ -332,7 +328,7 @@ impl BlinnPhongMaterial {
         }
 
         shader_parser
-            .parse_shader(include_str!("shaders/blinn_phong.wgsl"))
+            .parse_shader(include_str!("../shaders/blinn_phong.wgsl"))
             .to_string()
     }
 }

@@ -42,7 +42,7 @@ async fn run() {
     event_loop
         .run(move |event, target| {
             let window = &mini_gpu.renderer.window;
-            let camera = mini_gpu.scene.get_default_camera().unwrap();
+            let camera = mini_gpu.world.get_default_camera().unwrap();
             match event {
                 Event::WindowEvent {
                     ref event,
@@ -50,7 +50,7 @@ async fn run() {
                 } if window_id == window.id() => match event {
                     WindowEvent::RedrawRequested => {
                         camera.update_bind_group(&mini_gpu.renderer);
-                        if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.scene) {
+                        if let Err(e) = mini_gpu.renderer.render(&mut mini_gpu.world) {
                             println!("Failed to render: {}", e);
                         }
                     }
@@ -106,15 +106,15 @@ fn make_test_mesh(mini_gpu: &mut MiniGPU) {
         &mini_gpu.renderer,
     );
 
-    let camera = mini_gpu.scene.get_default_camera().unwrap();
+    let camera = mini_gpu.world.get_default_camera().unwrap();
     let perspective_camera = camera.as_any().downcast_mut::<PerspectiveCamera>().unwrap();
     perspective_camera.config.position = glam::Vec3::new(0., 0., 2.);
     camera.update_bind_group(&mini_gpu.renderer);
 
-    let entity_id = mini_gpu.scene.add_entity(Entity::new());
-    mini_gpu.scene.set_entity_component(entity_id, mesh, "mesh");
+    let entity_id = mini_gpu.world.add_entity(Entity::new());
+    mini_gpu.world.set_entity_component(entity_id, mesh, "mesh");
     mini_gpu
-        .scene
+        .world
         .set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
     let _ = mini_gpu
         .renderer

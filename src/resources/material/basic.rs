@@ -3,12 +3,11 @@ use std::borrow::Cow;
 use wgpu::{util::DeviceExt, ShaderModuleDescriptor, ShaderSource};
 
 use crate::{
-    components::material::MaterialTrait,
     renderer::Renderer,
+    resources::{material::MaterialTrait, shaders::shader::ShaderParser},
     utils::{depth_texture, texture::Texture},
 };
 
-use super::shader::ShaderParser;
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 pub struct VertexFormatKey {
     pub has_texture: bool, // 材质是否使用纹理
@@ -54,14 +53,11 @@ impl MaterialTrait for BasicMaterial {
         &self.bind_group
     }
     fn get_render_pipeline(
-        &mut self,
+        &self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&wgpu::BindGroupLayout>,
         env_vertex_buffer_layout: Vec<wgpu::VertexBufferLayout>,
-    ) -> &wgpu::RenderPipeline {
-        if self.pipeline.is_some() {
-            return self.pipeline.as_ref().unwrap();
-        }
+    ) -> wgpu::RenderPipeline {
         let device = &renderer.device;
         let mut layouts = vec![&self.bind_group_layout];
         for layout in env_pipeline_layout {
@@ -93,8 +89,7 @@ impl MaterialTrait for BasicMaterial {
             multiview: None,
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
         });
-        self.pipeline = Some(pipeline);
-        self.pipeline.as_ref().unwrap()
+        pipeline
     }
 }
 
@@ -210,7 +205,7 @@ impl BasicMaterial {
         }
 
         shader_parser
-            .parse_shader(include_str!("shaders/basic.wgsl"))
+            .parse_shader(include_str!("../shaders/basic.wgsl"))
             .to_string()
     }
 }

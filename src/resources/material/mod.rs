@@ -1,3 +1,8 @@
+pub mod basic;
+pub mod blinn_phong;
+pub mod pbr;
+pub mod sprite;
+
 use std::borrow::Cow;
 use wgpu::{util::DeviceExt, *};
 
@@ -30,14 +35,11 @@ impl MaterialTrait for Material {
     }
 
     fn get_render_pipeline(
-        &mut self,
+        &self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&BindGroupLayout>,
         env_vertex_buffer_layout: Vec<VertexBufferLayout>,
-    ) -> &wgpu::RenderPipeline {
-        if self.pipeline.is_some() {
-            return self.pipeline.as_ref().unwrap();
-        }
+    ) -> wgpu::RenderPipeline {
         let device = &renderer.device;
         let mut layouts = vec![&self.bind_group_layout];
         for layout in env_pipeline_layout {
@@ -69,7 +71,7 @@ impl MaterialTrait for Material {
             }),
             primitive: wgpu::PrimitiveState {
                 topology: self.config.topology, // 1.
-                strip_index_format: { 
+                strip_index_format: {
                     if self.config.topology == wgpu::PrimitiveTopology::TriangleStrip {
                         Some(wgpu::IndexFormat::Uint32)
                     } else {
@@ -86,15 +88,14 @@ impl MaterialTrait for Material {
                 conservative: false,
             },
             depth_stencil: Some(depth_texture::get_default_depth_stencil()),
-            multisample: wgpu::MultisampleState{
+            multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
         });
-        self.pipeline = Some(pipeline);
-        self.pipeline.as_ref().unwrap()
+        pipeline
     }
 }
 
@@ -164,10 +165,10 @@ pub trait MaterialTrait {
     fn get_name(&self) -> &str;
     fn get_bind_group(&self) -> &wgpu::BindGroup;
     fn get_render_pipeline(
-        &mut self,
+        &self,
         renderer: &Renderer,
         env_pipeline_layout: &Vec<&BindGroupLayout>,
         env_vertex_buffer_layout: Vec<VertexBufferLayout>,
-    ) -> &wgpu::RenderPipeline;
+    ) -> wgpu::RenderPipeline;
     fn as_any(&mut self) -> &mut dyn std::any::Any;
 }

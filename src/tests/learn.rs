@@ -1,5 +1,3 @@
-use crate::scene::Scene;
-
 pub struct A {
     pub id: u32,
 }
@@ -62,14 +60,4 @@ fn test_mat4_scalar() {
     let up = glam::Vec3::new(0.0, 1.0, 0.);
     let forward = right.cross(up);
     println!("forward: {:?}", forward);
-}
-
-#[test]
-fn test_dyn_box_trait() {
-    let s1 = Box::new(Struct1 { value: 1 });
-    s1.display();
-    let mut scene = Scene::new();
-    let index = scene.add_component::<Box<dyn Trait>>(s1);
-    let s1 = scene.get_component::<Box<Struct1>>(index);
-    s1.display();
 }

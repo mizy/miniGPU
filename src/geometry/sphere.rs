@@ -1,8 +1,8 @@
 use glam::Vec3;
 
 use crate::{
-    components::mesh::{Mesh, VertexFormat, VertexPositionNormalTexture},
     renderer::Renderer,
+    resources::mesh::{Mesh, VertexFormat, VertexPositionNormalTexture},
 };
 
 pub struct MakeSphereConfig {
@@ -38,7 +38,7 @@ pub fn make_sphere_data(config: MakeSphereConfig) -> (Vec<f32>, Vec<u32>, Vec<f3
     let mut index = 0;
 
     let mut vertex = Vec3::new(0.0, 0.0, 0.0);
-    let mut normal = Vec3::new(0.0, 0.0, 0.0);
+    let mut normal: Vec3;
     // generate vertices, normals and uvs
     for iy in 0..=config.height_segments {
         let mut vertices_row = Vec::new();

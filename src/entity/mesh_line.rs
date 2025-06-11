@@ -6,20 +6,21 @@ use crate::{
         mesh::Mesh,
     },
     renderer::Renderer,
-    scene::Scene,
+    world::World,
+    shaders::shader::ShaderParser,
 };
 
 pub fn make_mesh(
     path: &Vec<Vec3>,
     width: f32,
     renderer: &Renderer,
-    scene: &mut Scene,
+    world: &mut World,
     entity_id: usize,
 ) {
     let (vertices, indices) = make_width_line_vertexes(path, width);
     println!("vertices: {:?}", vertices);
     let mesh = Mesh::new_position_only(vertices, indices, renderer);
-    scene.set_entity_component(entity_id, mesh, "mesh");
+    world.set_entity_component(entity_id, mesh, "mesh");
 }
 
 pub fn make_width_line_vertexes(path: &Vec<Vec3>, width: f32) -> (Vec<f32>, Vec<u32>) {
@@ -50,9 +51,9 @@ pub fn make_width_line_vertexes(path: &Vec<Vec3>, width: f32) -> (Vec<f32>, Vec<
     (vertexes, indices)
 }
 
-pub fn make_material(renderer: &Renderer, scene: &mut Scene, color: Vec<f32>, entity_id: usize) {
-    let shader = include_str!("../components/materials/shaders/default.wgsl");
-    let mut shader_parser = crate::components::materials::shader::ShaderParser::new();
+pub fn make_material(renderer: &Renderer, world: &mut World, color: Vec<f32>, entity_id: usize) {
+    let shader = include_str!("../shaders/default.wgsl");
+    let mut shader_parser = ShaderParser::new();
     let shader = shader_parser.parse_shader(shader);
     let material = Material::new(
         MaterialConfig {
@@ -63,5 +64,5 @@ pub fn make_material(renderer: &Renderer, scene: &mut Scene, color: Vec<f32>, en
         renderer,
     );
     // material.pipeline.
-    scene.set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
+    world.set_entity_component::<Box<dyn MaterialTrait>>(entity_id, Box::new(material), "material");
 }
